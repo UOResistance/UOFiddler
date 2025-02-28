@@ -118,7 +118,42 @@
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
   <data name="richTextBox1.Text" xml:space="preserve">
-    <value>Version 4.15.1
+    <value>Version 4.17.5
+- Added PNG format when inserting or replacing graphics.
+
+Version 4.17.4
+- Fixed UOP file conversion that was broken after recent UOP encoding update.
+
+Version 4.17.3
+- Fixed gump related crash in compare plugin.
+
+Version 4.17.2
+- Fixed crash in animation thumbnail list. 
+
+Version 4.17.1
+- Fixed animation palette import from text files.
+
+Version 4.17.0
+- Improved cliloc and gump file encoding. Allows reading and saving compressed clilocs and gumps (author Krubster)
+
+Version 4.16.1
+- Fixed some crashes when file paths are invalid.
+
+Version 4.16.0
+- Added reading of compressed gump file introduced in version 7.0.104 (contributor Krubster based on ClassicUO team work)
+  + support is only partial so it can only read the files and decompress them
+  + saving will still produce old file type and there is no way to generate compressed UOP yet
+
+Version 4.15.3
+- Fixed importing animation frames from gif files
+
+Version 4.15.2
+- Added reading of compressed cliloc files introduced in version 7.0.104 (authors ClassicUO team; added by Tecmo)
+  + support is only partial so it can only read the files and decompress
+  + saving will still produce old file type
+  + to read newer clilocs you need to enable "New cliloc format" in Options
+
+Version 4.15.1
 - Fixed crash when animdata frame count entry is higher than the maximum value of 64
 
 Version 4.15.0
