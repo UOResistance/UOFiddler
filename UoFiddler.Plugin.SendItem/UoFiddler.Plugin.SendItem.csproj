@@ -6,7 +6,7 @@
 		<AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
 		<AssemblyTitle>SendItem</AssemblyTitle>
 		<Product>SendItem</Product>
-		<Copyright>Copyright © 2024</Copyright>
+		<Copyright>Copyright © 2025</Copyright>
 		<AssemblyVersion>1.0.1.0</AssemblyVersion>
 		<FileVersion>1.0.1.0</FileVersion>
 	</PropertyGroup>
@@ -23,7 +23,7 @@
 		<GenerateSerializationAssemblies>Off</GenerateSerializationAssemblies>
 	</PropertyGroup>
 	<ItemGroup>
-	  <PackageReference Include="Serilog" Version="4.2.0" />
+	  <PackageReference Include="Serilog" Version="4.3.0" />
 	</ItemGroup>
 	<ItemGroup>
 		<Compile Update="Forms\SendItemOptionsForm.cs">
