@@ -48,8 +48,19 @@ namespace UoFiddler.Controls.UserControls
         private bool _loaded;
         private bool _showFreeSlots;
         private readonly MultisControl _refMarker;
-        private Color _backgroundImageColor = Color.White;
         private bool _useTransparencyForPng = true;
+        private bool _previewFitMode = true;
+        private Bitmap _mulBitmap;
+        private Bitmap _uopBitmap;
+        private bool _isPanning;
+        private Point _panStartScreen;
+        private double _zoomLevel = 1.0;
+        private const double _zoomFactor = 1.25;
+        private const double _zoomMin = 0.25;
+        private const double _zoomMax = 2.0;
+        private string _mulStatusBase = string.Empty;
+        private string _uopStatusBase = string.Empty;
+        private MouseWheelFilter _mouseWheelFilter;
 
         /// <summary>
         /// ReLoads if loaded
@@ -62,12 +73,88 @@ namespace UoFiddler.Controls.UserControls
             }
         }
 
+        private string BuildNodeLabel(int i)
+        {
+            if (_xmlDocument == null)
+            {
+                return string.Format("{0,5} (0x{0:X})", i);
+            }
+
+            XmlNodeList xMultiNodeList = _xmlElementMultis.SelectNodes("/Multis/Multi[@id='" + i + "']");
+            string name = "";
+            foreach (XmlNode xMultiNode in xMultiNodeList)
+            {
+                name = xMultiNode.Attributes["name"].Value;
+            }
+
+            return $"{i,5} (0x{i:X}) {name}";
+        }
+
+        private TreeNode BuildMulNode(int i, MultiComponentList multi)
+        {
+            TreeNode node;
+            if (_xmlDocument == null)
+            {
+                node = new TreeNode(BuildNodeLabel(i));
+            }
+            else
+            {
+                node = new TreeNode(BuildNodeLabel(i));
+                XmlNodeList xMultiNodeList = _xmlElementMultis.SelectNodes("/Multis/Multi[@id='" + i + "']");
+                string name = "";
+                foreach (XmlNode xMultiNode in xMultiNodeList)
+                {
+                    name = xMultiNode.Attributes["name"].Value;
+                }
+
+                XmlNodeList tooltipList = _xmlElementMultis.SelectNodes("/Multis/ToolTip[@id='" + i + "']");
+                foreach (XmlNode xMultiNode in tooltipList)
+                {
+                    node.ToolTipText = name + "\r\n" + xMultiNode.Attributes["text"].Value;
+                }
+
+                if (tooltipList.Count == 0)
+                {
+                    node.ToolTipText = name;
+                }
+            }
+
+            node.Tag = multi;
+            node.Name = i.ToString();
+            return node;
+        }
+
+        private void ApplyDarkModeIfNeeded()
+        {
+            if (Options.DarkMode)
+            {
+                Color tabBg = Color.FromArgb(32, 32, 32);
+                TabPage[] tabPages = { tabPage5, tabPage6, tabPageMul, tabPageUop, tabPageUopPreview, tabPageUopComponents };
+                foreach (var tp in tabPages)
+                {
+                    tp.UseVisualStyleBackColor = false;
+                    tp.BackColor = tabBg;
+                }
+            }
+
+            ApplyPreviewBackgroundColor();
+            ControlEvents.PreviewBackgroundColorChangeEvent += ApplyPreviewBackgroundColor;
+        }
+
+        private void ApplyPreviewBackgroundColor()
+        {
+            MultiPictureBox.BackColor = Options.PreviewBackgroundColor;
+            UopPictureBox.BackColor = Options.PreviewBackgroundColor;
+        }
+
         private void OnLoad(object sender, EventArgs e)
         {
             if (IsAncestorSiteInDesignMode || FormsDesignerHelper.IsInDesignMode())
             {
                 return;
             }
+
+            ApplyDarkModeIfNeeded();
 
             Cursor.Current = Cursors.WaitCursor;
 
@@ -89,37 +176,7 @@ namespace UoFiddler.Controls.UserControls
                         continue;
                     }
 
-                    TreeNode node;
-                    if (_xmlDocument == null)
-                    {
-                        node = new TreeNode(string.Format("{0,5} (0x{0:X})", i));
-                    }
-                    else
-                    {
-                        XmlNodeList xMultiNodeList = _xmlElementMultis.SelectNodes("/Multis/Multi[@id='" + i + "']");
-                        string j = "";
-
-                        foreach (XmlNode xMultiNode in xMultiNodeList)
-                        {
-                            j = xMultiNode.Attributes["name"].Value;
-                        }
-
-                        node = new TreeNode($"{i,5} (0x{i:X}) {j}");
-                        xMultiNodeList = _xmlElementMultis.SelectNodes("/Multis/ToolTip[@id='" + i + "']");
-                        foreach (XmlNode xMultiNode in xMultiNodeList)
-                        {
-                            node.ToolTipText = j + "\r\n" + xMultiNode.Attributes["text"].Value;
-                        }
-
-                        if (xMultiNodeList.Count == 0)
-                        {
-                            node.ToolTipText = j;
-                        }
-                    }
-
-                    node.Tag = multi;
-                    node.Name = i.ToString();
-                    cache.Add(node);
+                    cache.Add(BuildMulNode(i, multi));
                 }
 
                 TreeViewMulti.Nodes.AddRange(cache.ToArray());
@@ -138,15 +195,26 @@ namespace UoFiddler.Controls.UserControls
             {
                 ControlEvents.FilePathChangeEvent += OnFilePathChangeEvent;
                 ControlEvents.MultiChangeEvent += OnMultiChangeEvent;
+                ControlEvents.PreviewBackgroundColorChangeEvent += OnPreviewBackgroundColorChanged;
             }
 
             _loaded = true;
+
+            LoadUopTree();
+
             Cursor.Current = Cursors.Default;
         }
 
         private void OnFilePathChangeEvent()
         {
+            Multis.ReloadUop();
             Reload();
+        }
+
+        private void OnPreviewBackgroundColorChanged()
+        {
+            MultiPictureBox.BackColor = Options.PreviewBackgroundColor;
+            UopPictureBox.BackColor = Options.PreviewBackgroundColor;
         }
 
         private void OnMultiChangeEvent(object sender, int id)
@@ -248,76 +316,104 @@ namespace UoFiddler.Controls.UserControls
             {
                 HeightChangeMulti.Maximum = 0;
                 toolTip.SetToolTip(HeightChangeMulti, "MaxHeight: 0");
-                StatusMultiText.Text = "Size: 0,0 MaxHeight: 0 MultiRegion: 0,0,0,0";
+                SetMulStatus("Size: 0,0 MaxHeight: 0 MultiRegion: 0,0,0,0");
             }
             else
             {
                 HeightChangeMulti.Maximum = multi.MaxHeight;
                 toolTip.SetToolTip(HeightChangeMulti,
                     $"MaxHeight: {HeightChangeMulti.Maximum - HeightChangeMulti.Value}");
-                StatusMultiText.Text =
-                    $"Size: {multi.Width},{multi.Height} MaxHeight: {multi.MaxHeight} MultiRegion: {multi.Min.X},{multi.Min.Y},{multi.Max.X},{multi.Max.Y} Surface: {multi.Surface}";
+                SetMulStatus($"Size: {multi.Width},{multi.Height} MaxHeight: {multi.MaxHeight} MultiRegion: {multi.Min.X},{multi.Min.Y},{multi.Max.X},{multi.Max.Y} Surface: {multi.Surface}");
             }
             ChangeComponentList(multi);
+            RefreshMulBitmap();
+            UpdateMulPictureBox();
+        }
+
+        private void RefreshMulBitmap()
+        {
+            _mulBitmap?.Dispose();
+            _mulBitmap = null;
+            if (TreeViewMulti.SelectedNode?.Tag is MultiComponentList multi && multi != MultiComponentList.Empty)
+            {
+                int h = HeightChangeMulti.Maximum - HeightChangeMulti.Value;
+                _mulBitmap = multi.GetImage(h);
+            }
+        }
+
+        private void UpdateMulPictureBox()
+        {
+            if (_previewFitMode || _mulBitmap == null)
+            {
+                MultiPictureBox.Dock = DockStyle.Fill;
+                MultiPictureBox.Cursor = Cursors.Default;
+            }
+            else
+            {
+                MultiPictureBox.Dock = DockStyle.None;
+                CenterPictureBox(MultiPictureBox, panelMultiScroll, GetZoomedSize(_mulBitmap.Size));
+                MultiPictureBox.Cursor = Cursors.Hand;
+            }
             MultiPictureBox.Invalidate();
         }
 
         private void OnPaint_MultiPic(object sender, PaintEventArgs e)
         {
-            if (TreeViewMulti.SelectedNode == null)
+            if (_mulBitmap == null)
             {
+                e.Graphics.Clear(MultiPictureBox.BackColor);
                 return;
             }
 
-            if ((MultiComponentList)TreeViewMulti.SelectedNode.Tag == MultiComponentList.Empty)
+            if (_previewFitMode)
             {
-                e.Graphics.Clear(Color.White);
-                return;
-            }
-            int h = HeightChangeMulti.Maximum - HeightChangeMulti.Value;
-            Bitmap mMainPictureMulti = ((MultiComponentList)TreeViewMulti.SelectedNode.Tag).GetImage(h);
-            if (mMainPictureMulti == null)
-            {
-                e.Graphics.Clear(Color.White);
-                return;
-            }
-            Point location = Point.Empty;
-            Size size = MultiPictureBox.Size;
-            Rectangle destRect;
-            if (mMainPictureMulti.Height < size.Height && mMainPictureMulti.Width < size.Width)
-            {
-                location.X = (MultiPictureBox.Width - mMainPictureMulti.Width) / 2;
-                location.Y = (MultiPictureBox.Height - mMainPictureMulti.Height) / 2;
-                destRect = new Rectangle(location, mMainPictureMulti.Size);
-            }
-            else if (mMainPictureMulti.Height < size.Height)
-            {
-                location.X = 0;
-                location.Y = (MultiPictureBox.Height - mMainPictureMulti.Height) / 2;
-                destRect = mMainPictureMulti.Width > size.Width
-                    ? new Rectangle(location, new Size(size.Width, mMainPictureMulti.Height))
-                    : new Rectangle(location, mMainPictureMulti.Size);
-            }
-            else if (mMainPictureMulti.Width < size.Width)
-            {
-                location.X = (MultiPictureBox.Width - mMainPictureMulti.Width) / 2;
-                location.Y = 0;
-                destRect = mMainPictureMulti.Height > size.Height
-                    ? new Rectangle(location, new Size(mMainPictureMulti.Width, size.Height))
-                    : new Rectangle(location, mMainPictureMulti.Size);
+                DrawFit(e.Graphics, _mulBitmap, MultiPictureBox.Size);
             }
             else
             {
-                destRect = new Rectangle(new Point(0, 0), size);
+                e.Graphics.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.NearestNeighbor;
+                e.Graphics.PixelOffsetMode = System.Drawing.Drawing2D.PixelOffsetMode.Half;
+                e.Graphics.DrawImage(_mulBitmap, 0, 0, MultiPictureBox.Width, MultiPictureBox.Height);
+            }
+        }
+
+        private static void DrawFit(Graphics g, Bitmap bmp, Size box)
+        {
+            Point location = Point.Empty;
+            Rectangle destRect;
+            if (bmp.Height < box.Height && bmp.Width < box.Width)
+            {
+                location.X = (box.Width - bmp.Width) / 2;
+                location.Y = (box.Height - bmp.Height) / 2;
+                destRect = new Rectangle(location, bmp.Size);
+            }
+            else if (bmp.Height < box.Height)
+            {
+                location.Y = (box.Height - bmp.Height) / 2;
+                destRect = bmp.Width > box.Width
+                    ? new Rectangle(location, new Size(box.Width, bmp.Height))
+                    : new Rectangle(location, bmp.Size);
+            }
+            else if (bmp.Width < box.Width)
+            {
+                location.X = (box.Width - bmp.Width) / 2;
+                destRect = bmp.Height > box.Height
+                    ? new Rectangle(location, new Size(bmp.Width, box.Height))
+                    : new Rectangle(location, bmp.Size);
+            }
+            else
+            {
+                destRect = new Rectangle(Point.Empty, box);
             }
 
-            e.Graphics.DrawImage(mMainPictureMulti, destRect, 0, 0, mMainPictureMulti.Width, mMainPictureMulti.Height, GraphicsUnit.Pixel);
+            g.DrawImage(bmp, destRect, 0, 0, bmp.Width, bmp.Height, GraphicsUnit.Pixel);
         }
 
         private void OnValue_HeightChangeMulti(object sender, EventArgs e)
         {
             toolTip.SetToolTip(HeightChangeMulti, $"MaxHeight: {HeightChangeMulti.Maximum - HeightChangeMulti.Value}");
-            MultiPictureBox.Invalidate();
+            RefreshMulBitmap();
+            UpdateMulPictureBox();
         }
 
         private void ChangeComponentList(MultiComponentList multi)
@@ -346,47 +442,36 @@ namespace UoFiddler.Controls.UserControls
 
         private void Extract_Image_ClickBmp(object sender, EventArgs e)
         {
-            ExtractMultiImage(ImageFormat.Bmp, _backgroundImageColor);
+            ExtractMultiImage(ImageFormat.Bmp, Options.PreviewBackgroundColor);
         }
 
         private void Extract_Image_ClickTiff(object sender, EventArgs e)
         {
-            ExtractMultiImage(ImageFormat.Tiff, _backgroundImageColor);
+            ExtractMultiImage(ImageFormat.Tiff, Options.PreviewBackgroundColor);
         }
 
         private void Extract_Image_ClickJpg(object sender, EventArgs e)
         {
-            ExtractMultiImage(ImageFormat.Jpeg, _backgroundImageColor);
+            ExtractMultiImage(ImageFormat.Jpeg, Options.PreviewBackgroundColor);
         }
 
         private void Extract_Image_ClickPng(object sender, EventArgs e)
         {
-            ExtractMultiImage(ImageFormat.Png, _useTransparencyForPng ? Color.Transparent : _backgroundImageColor);
+            ExtractMultiImage(ImageFormat.Png, _useTransparencyForPng ? Color.Transparent : Options.PreviewBackgroundColor);
         }
 
         private void ExtractMultiImage(ImageFormat imageFormat, Color backgroundColor)
         {
-            string fileExtension = Utils.GetFileExtensionFor(imageFormat);
-            string floorSuffix = HeightChangeMulti.Value > 0
-                ? $"_Z{HeightChangeMulti.Value:000}"
-                : string.Empty;
-
-            string fileName = Path.Combine(Options.OutputPath, $"Multi 0x{int.Parse(TreeViewMulti.SelectedNode.Name):X4}{floorSuffix}.{fileExtension}");
-
-            int selectedMaxHeight = HeightChangeMulti.Maximum - HeightChangeMulti.Value;
-
-            using (Bitmap multiBitmap = ((MultiComponentList)TreeViewMulti.SelectedNode.Tag)?.GetImage(selectedMaxHeight))
+            if (_mulBitmap == null)
             {
-                if (multiBitmap == null)
-                {
-                    return;
-                }
-
-                SaveImage(multiBitmap, fileName, imageFormat, backgroundColor);
-
-                MessageBox.Show($"Multi saved to {fileName}", "Saved", MessageBoxButtons.OK, MessageBoxIcon.Information,
-                    MessageBoxDefaultButton.Button1);
+                return;
             }
+
+            string fileExtension = Utils.GetFileExtensionFor(imageFormat);
+            string floorSuffix = HeightChangeMulti.Value > 0 ? $"_Z{HeightChangeMulti.Value:000}" : string.Empty;
+            string fileName = Path.Combine(Options.OutputPath, $"Multi 0x{int.Parse(TreeViewMulti.SelectedNode.Name):X4}{floorSuffix}.{fileExtension}");
+            SaveImage(_mulBitmap, fileName, imageFormat, backgroundColor);
+            FileSavedDialog.Show(FindForm(), fileName, "Multi saved successfully.");
         }
 
         private static void SaveImage(Image sourceImage, string fileName, ImageFormat imageFormat, Color backgroundColor)
@@ -413,23 +498,7 @@ namespace UoFiddler.Controls.UserControls
                 for (int i = 0; i < Multis.MaximumMultiIndex; ++i)
                 {
                     MultiComponentList multi = Multis.GetComponents(i);
-                    TreeNode node;
-                    if (_xmlDocument == null)
-                    {
-                        node = new TreeNode($"{i,5} (0x{i:X})");
-                    }
-                    else
-                    {
-                        XmlNodeList xMultiNodeList = _xmlElementMultis.SelectNodes("/Multis/Multi[@id='" + i + "']");
-                        string j = "";
-                        foreach (XmlNode xMultiNode in xMultiNodeList)
-                        {
-                            j = xMultiNode.Attributes["name"].Value;
-                        }
-                        node = new TreeNode(string.Format("{0,5} (0x{0:X}) {1}", i, j));
-                    }
-                    node.Name = i.ToString();
-                    node.Tag = multi;
+                    TreeNode node = BuildMulNode(i, multi);
                     if (multi == MultiComponentList.Empty)
                     {
                         node.ForeColor = Color.Red;
@@ -448,24 +517,7 @@ namespace UoFiddler.Controls.UserControls
                         continue;
                     }
 
-                    TreeNode node;
-                    if (_xmlDocument == null)
-                    {
-                        node = new TreeNode($"{i,5} (0x{i:X})");
-                    }
-                    else
-                    {
-                        XmlNodeList xMultiNodeList = _xmlElementMultis.SelectNodes("/Multis/Multi[@id='" + i + "']");
-                        string j = "";
-                        foreach (XmlNode xMultiNode in xMultiNodeList)
-                        {
-                            j = xMultiNode.Attributes["name"].Value;
-                        }
-                        node = new TreeNode(string.Format("{0,5} (0x{0:X}) {1}", i, j));
-                    }
-                    node.Tag = multi;
-                    node.Name = i.ToString();
-                    TreeViewMulti.Nodes.Add(node);
+                    TreeViewMulti.Nodes.Add(BuildMulNode(i, multi));
                 }
             }
             TreeViewMulti.EndUpdate();
@@ -489,8 +541,8 @@ namespace UoFiddler.Controls.UserControls
             string path = Options.OutputPath;
             string fileName = Path.Combine(path, $"Multi 0x{id:X}.txt");
             multi.ExportToTextFile(fileName);
-            MessageBox.Show($"Multi saved to {fileName}", "Saved", MessageBoxButtons.OK, MessageBoxIcon.Information,
-                MessageBoxDefaultButton.Button1);
+
+            FileSavedDialog.Show(FindForm(), fileName, "Multi saved successfully.");
         }
 
         private void OnExportWscFile(object sender, EventArgs e)
@@ -511,8 +563,8 @@ namespace UoFiddler.Controls.UserControls
             string path = Options.OutputPath;
             string fileName = Path.Combine(path, $"Multi 0x{id:X}.wsc");
             multi.ExportToWscFile(fileName);
-            MessageBox.Show($"Multi saved to {fileName}", "Saved", MessageBoxButtons.OK, MessageBoxIcon.Information,
-                MessageBoxDefaultButton.Button1);
+
+            FileSavedDialog.Show(FindForm(), fileName, "Multi saved successfully.");
         }
 
         private void OnExportUOAFile(object sender, EventArgs e)
@@ -533,16 +585,16 @@ namespace UoFiddler.Controls.UserControls
             string path = Options.OutputPath;
             string fileName = Path.Combine(path, $"Multi 0x{id:X}.uoa");
             multi.ExportToUOAFile(fileName);
-            MessageBox.Show($"Multi saved to {fileName}", "Saved", MessageBoxButtons.OK, MessageBoxIcon.Information,
-                MessageBoxDefaultButton.Button1);
+
+            FileSavedDialog.Show(FindForm(), fileName, "Multi saved successfully.");
         }
 
         private void OnClickSave(object sender, EventArgs e)
         {
             Multis.Save(Options.OutputPath);
-            MessageBox.Show($"Saved to {Options.OutputPath}", "Save", MessageBoxButtons.OK, MessageBoxIcon.Information,
-                MessageBoxDefaultButton.Button1);
             Options.ChangedUltimaClass["Multis"] = false;
+
+            FileSavedDialog.Show(FindForm(), Options.OutputPath, "Files saved successfully.");
         }
 
         private void OnClickRemove(object sender, EventArgs e)
@@ -586,30 +638,31 @@ namespace UoFiddler.Controls.UserControls
                 }
             }
 
-            using (var dialog = new MultiImportForm(id, ChangeMulti) { TopMost = true })
+            using (var dialog = new MultiImportForm(id, ChangeMulti))
             {
+                dialog.TopMost = true;
                 dialog.ShowDialog();
             }
         }
 
         private void OnClick_SaveAllBmp(object sender, EventArgs e)
         {
-            ExportAllMultis(ImageFormat.Bmp, _backgroundImageColor);
+            ExportAllMultis(ImageFormat.Bmp, Options.PreviewBackgroundColor);
         }
 
         private void OnClick_SaveAllTiff(object sender, EventArgs e)
         {
-            ExportAllMultis(ImageFormat.Tiff, _backgroundImageColor);
+            ExportAllMultis(ImageFormat.Tiff, Options.PreviewBackgroundColor);
         }
 
         private void OnClick_SaveAllJpg(object sender, EventArgs e)
         {
-            ExportAllMultis(ImageFormat.Jpeg, _backgroundImageColor);
+            ExportAllMultis(ImageFormat.Jpeg, Options.PreviewBackgroundColor);
         }
 
         private void OnClick_SaveAllPng(object sender, EventArgs e)
         {
-            ExportAllMultis(ImageFormat.Png, _useTransparencyForPng ? Color.Transparent : _backgroundImageColor);
+            ExportAllMultis(ImageFormat.Png, _useTransparencyForPng ? Color.Transparent : Options.PreviewBackgroundColor);
         }
 
         private void ExportAllMultis(ImageFormat imageFormat, Color backgroundColor)
@@ -645,8 +698,7 @@ namespace UoFiddler.Controls.UserControls
                     }
                 }
 
-                MessageBox.Show($"All Multis saved to {dialog.SelectedPath}", "Saved", MessageBoxButtons.OK,
-                    MessageBoxIcon.Information, MessageBoxDefaultButton.Button1);
+                FileSavedDialog.Show(FindForm(), dialog.SelectedPath, "All Multis saved successfully.");
             }
         }
 
@@ -678,8 +730,8 @@ namespace UoFiddler.Controls.UserControls
                     string fileName = Path.Combine(dialog.SelectedPath, $"Multi 0x{index:X4}.txt");
                     multi.ExportToTextFile(fileName);
                 }
-                MessageBox.Show($"All Multis saved to {dialog.SelectedPath}", "Saved", MessageBoxButtons.OK,
-                    MessageBoxIcon.Information, MessageBoxDefaultButton.Button1);
+
+                FileSavedDialog.Show(FindForm(), dialog.SelectedPath, "All Multis saved successfully.");
             }
         }
 
@@ -711,8 +763,8 @@ namespace UoFiddler.Controls.UserControls
                     string fileName = Path.Combine(dialog.SelectedPath, $"Multi 0x{index:X4}.uoa");
                     multi.ExportToUOAFile(fileName);
                 }
-                MessageBox.Show($"All Multis saved to {dialog.SelectedPath}", "Saved", MessageBoxButtons.OK,
-                    MessageBoxIcon.Information, MessageBoxDefaultButton.Button1);
+
+                FileSavedDialog.Show(FindForm(), dialog.SelectedPath, "All Multis saved successfully.");
             }
         }
 
@@ -744,8 +796,8 @@ namespace UoFiddler.Controls.UserControls
                     string fileName = Path.Combine(dialog.SelectedPath, $"Multi 0x{index:X4}.wsc");
                     multi.ExportToWscFile(fileName);
                 }
-                MessageBox.Show($"All Multis saved to {dialog.SelectedPath}", "Saved", MessageBoxButtons.OK,
-                    MessageBoxIcon.Information, MessageBoxDefaultButton.Button1);
+
+                FileSavedDialog.Show(FindForm(), dialog.SelectedPath, "All Multis saved successfully.");
             }
         }
 
@@ -777,8 +829,8 @@ namespace UoFiddler.Controls.UserControls
                     string fileName = Path.Combine(dialog.SelectedPath, $"{index:D4}.csv");
                     multi.ExportToCsvFile(fileName);
                 }
-                MessageBox.Show($"All Multis saved to {dialog.SelectedPath}", "Saved", MessageBoxButtons.OK,
-                    MessageBoxIcon.Information, MessageBoxDefaultButton.Button1);
+
+                FileSavedDialog.Show(FindForm(), dialog.SelectedPath, "All Multis saved successfully.");
             }
         }
 
@@ -810,8 +862,8 @@ namespace UoFiddler.Controls.UserControls
                     string fileName = Path.Combine(dialog.SelectedPath, $"Multi 0x{index:X4}.uox3");
                     multi.ExportToUox3File(fileName);
                 }
-                MessageBox.Show($"All Multis saved to {dialog.SelectedPath}", "Saved", MessageBoxButtons.OK,
-                    MessageBoxIcon.Information, MessageBoxDefaultButton.Button1);
+
+                FileSavedDialog.Show(FindForm(), dialog.SelectedPath, "All Multis saved successfully.");
             }
         }
 
@@ -833,8 +885,7 @@ namespace UoFiddler.Controls.UserControls
             string path = Options.OutputPath;
             string fileName = Path.Combine(path, $"{id:D4}.csv");
             multi.ExportToCsvFile(fileName);
-            MessageBox.Show($"Multi saved to {fileName}", "Saved", MessageBoxButtons.OK, MessageBoxIcon.Information,
-                MessageBoxDefaultButton.Button1);
+            FileSavedDialog.Show(FindForm(), fileName, "Multi saved successfully.");
         }
 
         private void OnExportUox3File(object sender, EventArgs e)
@@ -855,8 +906,7 @@ namespace UoFiddler.Controls.UserControls
             string path = Options.OutputPath;
             string fileName = Path.Combine(path, $"Multi 0x{id:X4}.uox3");
             multi.ExportToUox3File(fileName);
-            MessageBox.Show($"Multi saved to {fileName}", "Saved", MessageBoxButtons.OK, MessageBoxIcon.Information,
-                MessageBoxDefaultButton.Button1);
+            FileSavedDialog.Show(FindForm(), fileName, "Multi saved successfully.");
         }
 
         private void ChangeBackgroundColorToolStripMenuItem_Click(object sender, EventArgs e)
@@ -866,13 +916,582 @@ namespace UoFiddler.Controls.UserControls
                 return;
             }
 
-            _backgroundImageColor = colorDialog.Color;
-            MultiPictureBox.BackColor = _backgroundImageColor;
+            Options.PreviewBackgroundColor = colorDialog.Color;
+            ControlEvents.FirePreviewBackgroundColorChangeEvent();
         }
 
         private void UseTransparencyForPNGToolStripMenuItem_CheckedChanged(object sender, EventArgs e)
         {
             _useTransparencyForPng = UseTransparencyForPNGToolStripMenuItem.Checked;
+        }
+
+        private void LoadUopTree()
+        {
+            treeViewUop.BeginUpdate();
+            treeViewUop.Nodes.Clear();
+
+            if (!Multis.HasUopFile)
+            {
+                treeViewUop.Nodes.Add(new TreeNode("multicollection.uop not found or path is not set.") { Name = "-1" });
+                treeViewUop.EndUpdate();
+                return;
+            }
+
+            var cache = new List<TreeNode>();
+            for (int i = 0; i < Multis.MaximumMultiIndex; ++i)
+            {
+                MultiComponentList multi = Multis.GetUopComponents(i);
+                if (multi == MultiComponentList.Empty)
+                {
+                    continue;
+                }
+
+                cache.Add(new TreeNode(BuildNodeLabel(i)) { Tag = multi, Name = i.ToString() });
+            }
+
+            treeViewUop.Nodes.AddRange(cache.ToArray());
+            treeViewUop.EndUpdate();
+
+            if (treeViewUop.Nodes.Count > 0)
+            {
+                treeViewUop.SelectedNode = treeViewUop.Nodes[0];
+            }
+        }
+
+        private void AfterSelect_UopMulti(object sender, TreeViewEventArgs e)
+        {
+            if (treeViewUop.SelectedNode?.Tag is not MultiComponentList multi)
+            {
+                return;
+            }
+
+            if (multi == MultiComponentList.Empty)
+            {
+                HeightChangeUop.Maximum = 0;
+                toolTip.SetToolTip(HeightChangeUop, "MaxHeight: 0");
+                SetUopStatus("Size: 0,0 MaxHeight: 0 MultiRegion: 0,0,0,0");
+            }
+            else
+            {
+                HeightChangeUop.Maximum = multi.MaxHeight;
+                toolTip.SetToolTip(HeightChangeUop, $"MaxHeight: {HeightChangeUop.Maximum - HeightChangeUop.Value}");
+                SetUopStatus($"Size: {multi.Width},{multi.Height} MaxHeight: {multi.MaxHeight} MultiRegion: {multi.Min.X},{multi.Min.Y},{multi.Max.X},{multi.Max.Y} Surface: {multi.Surface}");
+            }
+
+            ChangeUopComponentList(multi);
+            RefreshUopBitmap();
+            UpdateUopPictureBox();
+        }
+
+        private void RefreshUopBitmap()
+        {
+            _uopBitmap?.Dispose();
+            _uopBitmap = null;
+            if (treeViewUop.SelectedNode?.Tag is MultiComponentList multi && multi != MultiComponentList.Empty)
+            {
+                int h = HeightChangeUop.Maximum - HeightChangeUop.Value;
+                _uopBitmap = multi.GetImage(h);
+            }
+        }
+
+        private void UpdateUopPictureBox()
+        {
+            if (_previewFitMode || _uopBitmap == null)
+            {
+                UopPictureBox.Dock = DockStyle.Fill;
+                UopPictureBox.Cursor = Cursors.Default;
+            }
+            else
+            {
+                UopPictureBox.Dock = DockStyle.None;
+                CenterPictureBox(UopPictureBox, panelUopScroll, GetZoomedSize(_uopBitmap.Size));
+                UopPictureBox.Cursor = Cursors.Hand;
+            }
+            UopPictureBox.Invalidate();
+        }
+
+        private void ChangeUopComponentList(MultiComponentList multi)
+        {
+            UopComponentBox.Clear();
+            if (multi == MultiComponentList.Empty)
+            {
+                return;
+            }
+
+            bool isUohsa = Art.IsUOAHS();
+            for (int x = 0; x < multi.Width; ++x)
+            {
+                for (int y = 0; y < multi.Height; ++y)
+                {
+                    foreach (var mTile in multi.Tiles[x][y])
+                    {
+                        UopComponentBox.AppendText(
+                            isUohsa
+                                ? $"0x{mTile.Id:X4} {x,3} {y,3} {mTile.Z,2} {mTile.Flag,2} {mTile.Unk1,2}\n"
+                                : $"0x{mTile.Id:X4} {x,3} {y,3} {mTile.Z,2} {mTile.Flag,2}\n");
+                    }
+                }
+            }
+        }
+
+        private void OnValue_HeightChangeUop(object sender, EventArgs e)
+        {
+            toolTip.SetToolTip(HeightChangeUop, $"MaxHeight: {HeightChangeUop.Maximum - HeightChangeUop.Value}");
+            RefreshUopBitmap();
+            UpdateUopPictureBox();
+        }
+
+        private void OnPaint_UopMultiPic(object sender, PaintEventArgs e)
+        {
+            if (_uopBitmap == null)
+            {
+                e.Graphics.Clear(UopPictureBox.BackColor);
+                return;
+            }
+
+            if (_previewFitMode)
+            {
+                DrawFit(e.Graphics, _uopBitmap, UopPictureBox.Size);
+            }
+            else
+            {
+                e.Graphics.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.NearestNeighbor;
+                e.Graphics.PixelOffsetMode = System.Drawing.Drawing2D.PixelOffsetMode.Half;
+                e.Graphics.DrawImage(_uopBitmap, 0, 0, UopPictureBox.Width, UopPictureBox.Height);
+            }
+        }
+
+        private void OnToggleFitMode(object sender, EventArgs e)
+        {
+            _previewFitMode = ((System.Windows.Forms.ToolStripButton)sender).Checked;
+            fitModeToolStripMenuItem.CheckedChanged -= OnToggleFitMode;
+            uopFitModeToolStripMenuItem.CheckedChanged -= OnToggleFitMode;
+            fitModeToolStripMenuItem.Checked = _previewFitMode;
+            uopFitModeToolStripMenuItem.Checked = _previewFitMode;
+            fitModeToolStripMenuItem.CheckedChanged += OnToggleFitMode;
+            uopFitModeToolStripMenuItem.CheckedChanged += OnToggleFitMode;
+            UpdateMulPictureBox();
+            UpdateUopPictureBox();
+            UpdateZoomStatus();
+        }
+
+        private static void CenterPictureBox(PictureBox pic, Panel panel, Size bitmapSize)
+        {
+            // Set size first so the panel can clamp AutoScrollPosition to the new valid range.
+            pic.Size = bitmapSize;
+
+            int vx = Math.Max(0, (panel.ClientSize.Width - bitmapSize.Width) / 2);
+            int vy = Math.Max(0, (panel.ClientSize.Height - bitmapSize.Height) / 2);
+
+            // AutoScrollPosition getter returns a negative offset (e.g. (0,-100) when scrolled 100 down).
+            // Control.Location in a scrolled Panel is relative to the current view, not the virtual origin,
+            // so we add the scroll offset to land at the correct virtual position.
+            Point scroll = panel.AutoScrollPosition;
+            pic.Location = new Point(vx + scroll.X, vy + scroll.Y);
+        }
+
+        private void OnPanelMultiScroll_Resize(object sender, EventArgs e)
+        {
+            if (!_previewFitMode && _mulBitmap != null)
+            {
+                CenterPictureBox(MultiPictureBox, panelMultiScroll, GetZoomedSize(_mulBitmap.Size));
+            }
+        }
+
+        private void OnPanelUopScroll_Resize(object sender, EventArgs e)
+        {
+            if (!_previewFitMode && _uopBitmap != null)
+            {
+                CenterPictureBox(UopPictureBox, panelUopScroll, GetZoomedSize(_uopBitmap.Size));
+            }
+        }
+
+        private void OnMulPan_MouseDown(object sender, MouseEventArgs e)
+        {
+            if (_previewFitMode || e.Button != MouseButtons.Left)
+            {
+                return;
+            }
+
+            _isPanning = true;
+            _panStartScreen = Cursor.Position;
+            MultiPictureBox.Cursor = Cursors.SizeAll;
+        }
+
+        private void OnMulPan_MouseMove(object sender, MouseEventArgs e)
+        {
+            if (!_isPanning)
+            {
+                return;
+            }
+
+            PanPanel(panelMultiScroll);
+        }
+
+        private void OnUopPan_MouseDown(object sender, MouseEventArgs e)
+        {
+            if (_previewFitMode || e.Button != MouseButtons.Left)
+            {
+                return;
+            }
+
+            _isPanning = true;
+            _panStartScreen = Cursor.Position;
+            UopPictureBox.Cursor = Cursors.SizeAll;
+        }
+
+        private void OnUopPan_MouseMove(object sender, MouseEventArgs e)
+        {
+            if (!_isPanning)
+            {
+                return;
+            }
+
+            PanPanel(panelUopScroll);
+        }
+
+        private void OnPan_MouseUp(object sender, MouseEventArgs e)
+        {
+            if (!_isPanning)
+            {
+                return;
+            }
+
+            _isPanning = false;
+            ((Control)sender).Cursor = _previewFitMode ? Cursors.Default : Cursors.Hand;
+        }
+
+        private void PanPanel(Panel panel)
+        {
+            Point pos = Cursor.Position;
+            int dx = pos.X - _panStartScreen.X;
+            int dy = pos.Y - _panStartScreen.Y;
+            Point scroll = panel.AutoScrollPosition;
+            panel.AutoScrollPosition = new Point(
+                Math.Max(0, -scroll.X - dx),
+                Math.Max(0, -scroll.Y - dy)
+            );
+            _panStartScreen = pos;
+        }
+
+        private Size GetZoomedSize(Size bitmapSize) =>
+            new Size(Math.Max(1, (int)(bitmapSize.Width * _zoomLevel)),
+                     Math.Max(1, (int)(bitmapSize.Height * _zoomLevel)));
+
+        private void ZoomIn() => SetZoom(_zoomLevel * _zoomFactor);
+        private void ZoomOut() => SetZoom(_zoomLevel / _zoomFactor);
+        private void ZoomReset() => SetZoom(1.0);
+
+        private void SetZoom(double zoom)
+        {
+            _zoomLevel = Math.Clamp(zoom, _zoomMin, _zoomMax);
+            if (_previewFitMode)
+            {
+                return;
+            }
+
+            UpdateMulPictureBox();
+            UpdateUopPictureBox();
+            UpdateZoomStatus();
+        }
+
+        private void UpdateZoomStatus()
+        {
+            SetMulStatus(_mulStatusBase);
+            SetUopStatus(_uopStatusBase);
+        }
+
+        private void SetMulStatus(string baseText)
+        {
+            _mulStatusBase = baseText;
+            StatusMultiText.Text = _previewFitMode
+                ? baseText
+                : $"{baseText}  Zoom: {_zoomLevel * 100:F0}%";
+        }
+
+        private void SetUopStatus(string baseText)
+        {
+            _uopStatusBase = baseText;
+            StatusUopText.Text = _previewFitMode
+                ? baseText
+                : $"{baseText}  Zoom: {_zoomLevel * 100:F0}%";
+        }
+
+        protected override void OnHandleCreated(EventArgs e)
+        {
+            base.OnHandleCreated(e);
+            _mouseWheelFilter = new MouseWheelFilter(this);
+            Application.AddMessageFilter(_mouseWheelFilter);
+        }
+
+        protected override void OnHandleDestroyed(EventArgs e)
+        {
+            if (_mouseWheelFilter != null)
+            {
+                Application.RemoveMessageFilter(_mouseWheelFilter);
+            }
+
+            base.OnHandleDestroyed(e);
+        }
+
+        protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
+        {
+            if (_previewFitMode)
+            {
+                return base.ProcessCmdKey(ref msg, keyData);
+            }
+
+            switch (keyData)
+            {
+                case Keys.Oemplus | Keys.Shift:
+                case Keys.Add:
+                    ZoomIn();
+                    return true;
+                case Keys.OemMinus:
+                case Keys.Subtract:
+                    ZoomOut();
+                    return true;
+                case Keys.D0 | Keys.Control:
+                case Keys.NumPad0 | Keys.Control:
+                    ZoomReset();
+                    return true;
+                default:
+                    return base.ProcessCmdKey(ref msg, keyData);
+            }
+        }
+
+        private void OnClickHelp(object sender, EventArgs e)
+        {
+            using var form = new MultisHelpForm();
+            form.ShowDialog(this);
+        }
+
+        private void UopExtract_Image_ClickBmp(object sender, EventArgs e) =>
+            ExtractUopMultiImage(ImageFormat.Bmp, Options.PreviewBackgroundColor);
+
+        private void UopExtract_Image_ClickTiff(object sender, EventArgs e) =>
+            ExtractUopMultiImage(ImageFormat.Tiff, Options.PreviewBackgroundColor);
+
+        private void UopExtract_Image_ClickJpg(object sender, EventArgs e) =>
+            ExtractUopMultiImage(ImageFormat.Jpeg, Options.PreviewBackgroundColor);
+
+        private void UopExtract_Image_ClickPng(object sender, EventArgs e) =>
+            ExtractUopMultiImage(ImageFormat.Png, _useTransparencyForPng ? Color.Transparent : Options.PreviewBackgroundColor);
+
+        private void ExtractUopMultiImage(ImageFormat imageFormat, Color backgroundColor)
+        {
+            if (_uopBitmap == null)
+            {
+                return;
+            }
+
+            string fileExtension = Utils.GetFileExtensionFor(imageFormat);
+            string floorSuffix = HeightChangeUop.Value > 0 ? $"_Z{HeightChangeUop.Value:000}" : string.Empty;
+            int id = int.Parse(treeViewUop.SelectedNode.Name);
+            string fileName = Path.Combine(Options.OutputPath, $"UopMulti 0x{id:X4}{floorSuffix}.{fileExtension}");
+            SaveImage(_uopBitmap, fileName, imageFormat, backgroundColor);
+            FileSavedDialog.Show(FindForm(), fileName, "Multi saved successfully.");
+        }
+
+        private void OnUopExportTextFile(object sender, EventArgs e)
+        {
+            if (treeViewUop.SelectedNode?.Tag is not MultiComponentList multi || multi == MultiComponentList.Empty)
+            {
+                return;
+            }
+
+            int id = int.Parse(treeViewUop.SelectedNode.Name);
+            string fileName = Path.Combine(Options.OutputPath, $"UopMulti 0x{id:X}.txt");
+            multi.ExportToTextFile(fileName);
+            FileSavedDialog.Show(FindForm(), fileName, "Multi saved successfully.");
+        }
+
+        private void OnUopExportUOAFile(object sender, EventArgs e)
+        {
+            if (treeViewUop.SelectedNode?.Tag is not MultiComponentList multi || multi == MultiComponentList.Empty)
+            {
+                return;
+            }
+
+            int id = int.Parse(treeViewUop.SelectedNode.Name);
+            string fileName = Path.Combine(Options.OutputPath, $"UopMulti 0x{id:X}.uoa");
+            multi.ExportToUOAFile(fileName);
+            FileSavedDialog.Show(FindForm(), fileName, "Multi saved successfully.");
+        }
+
+        private void OnUopExportWscFile(object sender, EventArgs e)
+        {
+            if (treeViewUop.SelectedNode?.Tag is not MultiComponentList multi || multi == MultiComponentList.Empty)
+            {
+                return;
+            }
+
+            int id = int.Parse(treeViewUop.SelectedNode.Name);
+            string fileName = Path.Combine(Options.OutputPath, $"UopMulti 0x{id:X}.wsc");
+            multi.ExportToWscFile(fileName);
+            FileSavedDialog.Show(FindForm(), fileName, "Multi saved successfully.");
+        }
+
+        private void OnUopExportCsvFile(object sender, EventArgs e)
+        {
+            if (treeViewUop.SelectedNode?.Tag is not MultiComponentList multi || multi == MultiComponentList.Empty)
+            {
+                return;
+            }
+
+            int id = int.Parse(treeViewUop.SelectedNode.Name);
+            string fileName = Path.Combine(Options.OutputPath, $"{id:D4}_uop.csv");
+            multi.ExportToCsvFile(fileName);
+            FileSavedDialog.Show(FindForm(), fileName, "Multi saved successfully.");
+        }
+
+        private void OnUopClick_SaveAllBmp(object sender, EventArgs e) =>
+            ExportAllUopMultis(ImageFormat.Bmp, Options.PreviewBackgroundColor);
+
+        private void OnUopClick_SaveAllTiff(object sender, EventArgs e) =>
+            ExportAllUopMultis(ImageFormat.Tiff, Options.PreviewBackgroundColor);
+
+        private void OnUopClick_SaveAllJpg(object sender, EventArgs e) =>
+            ExportAllUopMultis(ImageFormat.Jpeg, Options.PreviewBackgroundColor);
+
+        private void OnUopClick_SaveAllPng(object sender, EventArgs e) =>
+            ExportAllUopMultis(ImageFormat.Png, _useTransparencyForPng ? Color.Transparent : Options.PreviewBackgroundColor);
+
+        private void ExportAllUopMultis(ImageFormat imageFormat, Color backgroundColor)
+        {
+            string fileExtension = Utils.GetFileExtensionFor(imageFormat);
+            using var dialog = new FolderBrowserDialog { Description = "Select directory", ShowNewFolderButton = true };
+            if (dialog.ShowDialog() != DialogResult.OK)
+            {
+                return;
+            }
+
+            const int maxHeight = 127;
+            for (int i = 0; i < treeViewUop.Nodes.Count; i++)
+            {
+                if (!int.TryParse(treeViewUop.Nodes[i].Name, out int index) || index < 0)
+                {
+                    continue;
+                }
+
+                if (treeViewUop.Nodes[i].Tag is not MultiComponentList multi || multi == MultiComponentList.Empty)
+                {
+                    continue;
+                }
+
+                string fileName = Path.Combine(dialog.SelectedPath, $"UopMulti 0x{index:X4}.{fileExtension}");
+                using Bitmap bitmap = multi.GetImage(maxHeight);
+                if (bitmap != null)
+                {
+                    SaveImage(bitmap, fileName, imageFormat, backgroundColor);
+                }
+            }
+
+            FileSavedDialog.Show(FindForm(), dialog.SelectedPath, "All UOP Multis saved successfully.");
+        }
+
+        private void OnUopClick_SaveAllText(object sender, EventArgs e)
+        {
+            using var dialog = new FolderBrowserDialog { Description = "Select directory", ShowNewFolderButton = true };
+            if (dialog.ShowDialog() != DialogResult.OK)
+            {
+                return;
+            }
+
+            for (int i = 0; i < treeViewUop.Nodes.Count; ++i)
+            {
+                if (!int.TryParse(treeViewUop.Nodes[i].Name, out int index) || index < 0)
+                {
+                    continue;
+                }
+
+                if (treeViewUop.Nodes[i].Tag is not MultiComponentList multi || multi == MultiComponentList.Empty)
+                {
+                    continue;
+                }
+
+                multi.ExportToTextFile(Path.Combine(dialog.SelectedPath, $"UopMulti 0x{index:X4}.txt"));
+            }
+
+            FileSavedDialog.Show(FindForm(), dialog.SelectedPath, "All UOP Multis saved successfully.");
+        }
+
+        private void OnUopClick_SaveAllUOA(object sender, EventArgs e)
+        {
+            using var dialog = new FolderBrowserDialog { Description = "Select directory", ShowNewFolderButton = true };
+            if (dialog.ShowDialog() != DialogResult.OK)
+            {
+                return;
+            }
+
+            for (int i = 0; i < treeViewUop.Nodes.Count; ++i)
+            {
+                if (!int.TryParse(treeViewUop.Nodes[i].Name, out int index) || index < 0)
+                {
+                    continue;
+                }
+
+                if (treeViewUop.Nodes[i].Tag is not MultiComponentList multi || multi == MultiComponentList.Empty)
+                {
+                    continue;
+                }
+
+                multi.ExportToUOAFile(Path.Combine(dialog.SelectedPath, $"UopMulti 0x{index:X4}.uoa"));
+            }
+
+            FileSavedDialog.Show(FindForm(), dialog.SelectedPath, "All UOP Multis saved successfully.");
+        }
+
+        private void OnUopClick_SaveAllWSC(object sender, EventArgs e)
+        {
+            using var dialog = new FolderBrowserDialog { Description = "Select directory", ShowNewFolderButton = true };
+            if (dialog.ShowDialog() != DialogResult.OK)
+            {
+                return;
+            }
+
+            for (int i = 0; i < treeViewUop.Nodes.Count; ++i)
+            {
+                if (!int.TryParse(treeViewUop.Nodes[i].Name, out int index) || index < 0)
+                {
+                    continue;
+                }
+
+                if (treeViewUop.Nodes[i].Tag is not MultiComponentList multi || multi == MultiComponentList.Empty)
+                {
+                    continue;
+                }
+
+                multi.ExportToWscFile(Path.Combine(dialog.SelectedPath, $"UopMulti 0x{index:X4}.wsc"));
+            }
+
+            FileSavedDialog.Show(FindForm(), dialog.SelectedPath, "All UOP Multis saved successfully.");
+        }
+
+        private void OnUopClick_SaveAllCSV(object sender, EventArgs e)
+        {
+            using var dialog = new FolderBrowserDialog { Description = "Select directory", ShowNewFolderButton = true };
+            if (dialog.ShowDialog() != DialogResult.OK)
+            {
+                return;
+            }
+
+            for (int i = 0; i < treeViewUop.Nodes.Count; ++i)
+            {
+                if (!int.TryParse(treeViewUop.Nodes[i].Name, out int index) || index < 0)
+                {
+                    continue;
+                }
+
+                if (treeViewUop.Nodes[i].Tag is not MultiComponentList multi || multi == MultiComponentList.Empty)
+                {
+                    continue;
+                }
+
+                multi.ExportToCsvFile(Path.Combine(dialog.SelectedPath, $"{index:D4}_uop.csv"));
+            }
+
+            FileSavedDialog.Show(FindForm(), dialog.SelectedPath, "All UOP Multis saved successfully.");
         }
 
         private void OnClick_SaveAllToXML(object sender, EventArgs e)
@@ -943,8 +1562,56 @@ namespace UoFiddler.Controls.UserControls
                 groupWriter.WriteEndDocument();
             }
 
-            MessageBox.Show($"All Multis saved to {fileName}", "Saved", MessageBoxButtons.OK,
-                MessageBoxIcon.Information, MessageBoxDefaultButton.Button1);
+            FileSavedDialog.Show(FindForm(), fileName, "All Multis saved successfully.");
+        }
+
+        private sealed class MouseWheelFilter : IMessageFilter
+        {
+            private const int _wmMouseWheel = 0x020A;
+
+            private readonly MultisControl _owner;
+
+            public MouseWheelFilter(MultisControl owner) => _owner = owner;
+
+            public bool PreFilterMessage(ref Message m)
+            {
+                if (m.Msg != _wmMouseWheel)
+                {
+                    return false;
+                }
+
+                if ((Control.ModifierKeys & Keys.Control) == 0)
+                {
+                    return false;
+                }
+
+                Point cursor = Cursor.Position;
+                if (IsOver(_owner.panelMultiScroll, cursor) || IsOver(_owner.panelUopScroll, cursor))
+                {
+                    int delta = (short)((int)m.WParam >> 16);
+                    if (delta > 0)
+                    {
+                        _owner.ZoomIn();
+                    }
+                    else
+                    {
+                        _owner.ZoomOut();
+                    }
+
+                    return true;
+                }
+                return false;
+            }
+
+            private static bool IsOver(Control c, Point screenPt)
+            {
+                if (!c.IsHandleCreated)
+                {
+                    return false;
+                }
+
+                return new Rectangle(c.PointToScreen(Point.Empty), c.Size).Contains(screenPt);
+            }
         }
     }
 }

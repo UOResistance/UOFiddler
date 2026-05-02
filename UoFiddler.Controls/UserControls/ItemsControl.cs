@@ -16,6 +16,7 @@ using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Windows.Forms;
 using Ultima;
 using UoFiddler.Controls.Classes;
@@ -37,11 +38,14 @@ namespace UoFiddler.Controls.UserControls
             DetailTextBox.AddBasicContextMenu();
         }
 
+        private static readonly Regex _hexIndexRegex = new(@"0[xX][0-9a-fA-F]+", RegexOptions.Compiled);
+
         private List<int> _itemList = new List<int>();
         private bool _showFreeSlots;
 
         private int _selectedGraphicId = -1;
 
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
         public int SelectedGraphicId
         {
             get => _selectedGraphicId;
@@ -71,15 +75,13 @@ namespace UoFiddler.Controls.UserControls
                 ? Color.Transparent
                 : Color.Gray;
 
-            if (Options.OverrideBackgroundColorFromTile)
-            {
-                ItemsTileView.BackColor = _backgroundColorItem;
-            }
+            var sameBackColor = ItemsTileView.BackColor == Options.PreviewBackgroundColor;
+            ItemsTileView.BackColor = Options.PreviewBackgroundColor;
 
             var sameTileSize = ItemsTileView.TileSize == newSize;
             var sameFocusColor = ItemsTileView.TileFocusColor == Options.TileFocusColor;
             var sameSelectionColor = ItemsTileView.TileHighlightColor == Options.TileSelectionColor;
-            if (sameTileSize && sameFocusColor && sameSelectionColor)
+            if (sameTileSize && sameFocusColor && sameSelectionColor && sameBackColor)
             {
                 return;
             }
@@ -219,6 +221,7 @@ namespace UoFiddler.Controls.UserControls
                 ControlEvents.FilePathChangeEvent += OnFilePathChangeEvent;
                 ControlEvents.ItemChangeEvent += OnItemChangeEvent;
                 ControlEvents.TileDataChangeEvent += OnTileDataChangeEvent;
+                ControlEvents.PreviewBackgroundColorChangeEvent += OnPreviewBackgroundColorChanged;
             }
 
             IsLoaded = true;
@@ -239,6 +242,16 @@ namespace UoFiddler.Controls.UserControls
         private void OnFilePathChangeEvent()
         {
             Reload();
+        }
+
+        private void OnPreviewBackgroundColorChanged()
+        {
+            ItemsTileView.BackColor = Options.PreviewBackgroundColor;
+            ItemsTileView.Invalidate();
+            if (_selectedGraphicId != -1)
+            {
+                UpdateDetail(_selectedGraphicId);
+            }
         }
 
         private void OnTileDataChangeEvent(object sender, int id)
@@ -321,8 +334,6 @@ namespace UoFiddler.Controls.UserControls
             ItemsTileView.Invalidate();
         }
 
-        private Color _backgroundColorItem = Color.White;
-
         private void ChangeBackgroundColorToolStripMenuItem_Click(object sender, EventArgs e)
         {
             if (colorDialog.ShowDialog() != DialogResult.OK)
@@ -330,17 +341,9 @@ namespace UoFiddler.Controls.UserControls
                 return;
             }
 
-            _backgroundColorItem = colorDialog.Color;
-
-            if (Options.OverrideBackgroundColorFromTile)
-            {
-                ItemsTileView.BackColor = _backgroundColorItem;
-            }
-
-            ItemsTileView.Invalidate();
+            Options.PreviewBackgroundColor = colorDialog.Color;
+            ControlEvents.FirePreviewBackgroundColorChangeEvent();
         }
-
-        private Color _backgroundDetailColor = Color.White;
 
         private void UpdateDetail(int graphic)
         {
@@ -374,7 +377,7 @@ namespace UoFiddler.Controls.UserControls
                 Bitmap newBit = new Bitmap(DetailPictureBox.Size.Width, DetailPictureBox.Size.Height);
                 using (Graphics newGraph = Graphics.FromImage(newBit))
                 {
-                    newGraph.Clear(_backgroundDetailColor);
+                    newGraph.Clear(Options.PreviewBackgroundColor);
                 }
 
                 DetailPictureBox.Image?.Dispose();
@@ -388,7 +391,7 @@ namespace UoFiddler.Controls.UserControls
                 Bitmap newBit = new Bitmap(DetailPictureBox.Size.Width, DetailPictureBox.Size.Height);
                 using (Graphics newGraph = Graphics.FromImage(newBit))
                 {
-                    newGraph.Clear(_backgroundDetailColor);
+                    newGraph.Clear(Options.PreviewBackgroundColor);
                     newGraph.DrawImage(bit, (DetailPictureBox.Size.Width - bit.Width) / 2, 5);
                 }
 
@@ -432,11 +435,8 @@ namespace UoFiddler.Controls.UserControls
                 return;
             }
 
-            _backgroundDetailColor = colorDialog.Color;
-            if (_selectedGraphicId != -1)
-            {
-                UpdateDetail(_selectedGraphicId);
-            }
+            Options.PreviewBackgroundColor = colorDialog.Color;
+            ControlEvents.FirePreviewBackgroundColorChangeEvent();
         }
 
         private bool _scrolling;
@@ -512,6 +512,23 @@ namespace UoFiddler.Controls.UserControls
                     if (dialog.FileName.Contains(".bmp"))
                     {
                         bitmap = Utils.ConvertBmp(bitmap);
+                    }
+
+                    // Validate image size before replacing
+                    if (!Art.ValidateStaticSize(bitmap, out int estimatedSize))
+                    {
+                        MessageBox.Show(
+                            $"Image is too large for MUL format!\n\n" +
+                            $"Image dimensions: {bitmap.Width}x{bitmap.Height}\n" +
+                            $"Encoded size: {estimatedSize:N0} ushorts\n" +
+                            $"Maximum allowed: 65,535 ushorts\n\n" +
+                            $"The static art format encodes opaque pixel runs only; cost per row is\n" +
+                            $"2 ushorts per run + 1 ushort per opaque pixel + 2 end markers.\n" +
+                            $"Reduce the image size or the amount of opaque content.",
+                            "Image Too Large",
+                            MessageBoxButtons.OK,
+                            MessageBoxIcon.Warning);
+                        return;
                     }
 
                     Art.ReplaceStatic(_selectedGraphicId, bitmap);
@@ -640,8 +657,8 @@ namespace UoFiddler.Controls.UserControls
             barDialog.Dispose();
             Cursor.Current = Cursors.Default;
             Options.ChangedUltimaClass["Art"] = false;
-            MessageBox.Show($"Saved to {Options.OutputPath}", "Save", MessageBoxButtons.OK, MessageBoxIcon.Information,
-                MessageBoxDefaultButton.Button1);
+
+            FileSavedDialog.Show(FindForm(), Options.OutputPath, "Files saved successfully.");
         }
 
         private void OnClickShowFreeSlots(object sender, EventArgs e)
@@ -820,8 +837,7 @@ namespace UoFiddler.Controls.UserControls
 
                 Cursor.Current = Cursors.Default;
 
-                MessageBox.Show($"All items saved to {dialog.SelectedPath}", "Saved", MessageBoxButtons.OK,
-                    MessageBoxIcon.Information, MessageBoxDefaultButton.Button1);
+                FileSavedDialog.Show(FindForm(), dialog.SelectedPath, "All items saved successfully.");
             }
         }
 
@@ -877,7 +893,7 @@ namespace UoFiddler.Controls.UserControls
             var selected = ItemsTileView.SelectedIndices.Contains(e.Index);
             if (!selected)
             {
-                e.Graphics.Clear(_backgroundColorItem);
+                e.Graphics.Clear(Options.PreviewBackgroundColor);
             }
 
             var bitmap = Art.GetStatic(_itemList[e.Index], out bool patched);
@@ -1174,6 +1190,94 @@ namespace UoFiddler.Controls.UserControls
             return index >= 0 && index <= Art.GetMaxItemId();
         }
 
+        private void OnClickReplaceFromFolder(object sender, EventArgs e)
+        {
+            using FolderBrowserDialog dialog = new FolderBrowserDialog();
+            dialog.Description = "Select folder containing images to replace";
+
+            if (dialog.ShowDialog() != DialogResult.OK)
+            {
+                return;
+            }
+
+            string[] allFiles = Directory.GetFiles(dialog.SelectedPath);
+            var replacedLines = new List<string>();
+            var skippedLines = new List<string>();
+
+            foreach (string file in allFiles)
+            {
+                string ext = Path.GetExtension(file).ToLowerInvariant();
+                if (ext != ".bmp" && ext != ".jpg" && ext != ".jpeg" && ext != ".png" && ext != ".tif" && ext != ".tiff")
+                {
+                    continue;
+                }
+
+                string name = Path.GetFileName(file);
+                Match match = _hexIndexRegex.Match(Path.GetFileNameWithoutExtension(file));
+                if (!match.Success)
+                {
+                    skippedLines.Add($"  {name}  (no hex ID in filename)");
+                    continue;
+                }
+
+                int index;
+                try
+                {
+                    index = Convert.ToInt32(match.Value, 16);
+                }
+                catch
+                {
+                    skippedLines.Add($"  {name}  (invalid hex value)");
+                    continue;
+                }
+
+                if (!IsIndexValid(index))
+                {
+                    skippedLines.Add($"  {name}  (index 0x{index:X} out of range)");
+                    continue;
+                }
+
+                try
+                {
+                    AddSingleItem(file, index);
+                    replacedLines.Add($"  0x{index:X4}  {name}");
+                }
+                catch
+                {
+                    skippedLines.Add($"  {name}  (failed to load image)");
+                }
+            }
+
+            ItemsTileView.VirtualListSize = _itemList.Count;
+            ItemsTileView.Invalidate();
+
+            var sb = new StringBuilder();
+            sb.AppendLine($"Replaced: {replacedLines.Count}    Skipped: {skippedLines.Count}");
+
+            if (replacedLines.Count > 0)
+            {
+                sb.AppendLine();
+                sb.AppendLine($"Replaced ({replacedLines.Count}):");
+                foreach (string line in replacedLines)
+                {
+                    sb.AppendLine(line);
+                }
+            }
+
+            if (skippedLines.Count > 0)
+            {
+                sb.AppendLine();
+                sb.AppendLine($"Skipped ({skippedLines.Count}):");
+                foreach (string line in skippedLines)
+                {
+                    sb.AppendLine(line);
+                }
+            }
+
+            using var resultForm = new ReplaceFromFolderResultForm(sb.ToString());
+            resultForm.ShowDialog(this);
+        }
+
         private void SearchByIdToolStripTextBox_KeyUp(object sender, KeyEventArgs e)
         {
             if (!Utils.ConvertStringToInt(searchByIdToolStripTextBox.Text, out int indexValue))
@@ -1198,8 +1302,82 @@ namespace UoFiddler.Controls.UserControls
             SelectedGraphicId = indexValue;
         }
 
+        protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
+        {
+            if (keyData == Keys.F3 || keyData == (Keys.F3 | Keys.Shift))
+            {
+                if (searchByNameToolStripTextBox.TextBox.Focused)
+                {
+                    return false;
+                }
+
+                if (!string.IsNullOrEmpty(searchByNameToolStripTextBox.Text))
+                {
+                    if (keyData == Keys.F3)
+                    {
+                        SearchName(searchByNameToolStripTextBox.Text, true);
+                    }
+                    else
+                    {
+                        SearchNamePrevious(searchByNameToolStripTextBox.Text);
+                    }
+                }
+                return true;
+            }
+
+            return base.ProcessCmdKey(ref msg, keyData);
+        }
+
+        public static bool SearchNamePrevious(string name)
+        {
+            var searchMethod = SearchHelper.GetSearchMethod();
+
+            int index = RefMarker._itemList.Count - 1;
+            if (RefMarker._selectedGraphicId >= 0)
+            {
+                index = RefMarker._itemList.IndexOf(RefMarker._selectedGraphicId) - 1;
+                if (index < 0)
+                {
+                    index = RefMarker._itemList.Count - 1;
+                }
+            }
+
+            for (int i = index; i >= 0; --i)
+            {
+                var searchResult = searchMethod(name, TileData.ItemTable[RefMarker._itemList[i]].Name);
+                if (searchResult.HasErrors)
+                {
+                    break;
+                }
+
+                if (!searchResult.EntryFound)
+                {
+                    continue;
+                }
+
+                RefMarker.ItemsTileView.FocusIndex = -1;
+                RefMarker.SelectedGraphicId = RefMarker._itemList[i];
+                return true;
+            }
+
+            return false;
+        }
+
         private void SearchByNameToolStripTextBox_KeyUp(object sender, KeyEventArgs e)
         {
+            if (e.KeyCode == Keys.F3)
+            {
+                if (e.Shift)
+                {
+                    SearchNamePrevious(searchByNameToolStripTextBox.Text);
+                }
+                else
+                {
+                    SearchName(searchByNameToolStripTextBox.Text, true);
+                }
+                return;
+            }
+
             SearchName(searchByNameToolStripTextBox.Text, false);
         }
 

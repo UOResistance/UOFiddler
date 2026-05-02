@@ -975,15 +975,15 @@ namespace UoFiddler.Controls.UserControls
 
                     if (Array.IndexOf(_drawOrder, TileData.ItemTable[i].Quality) == -1)
                     {
-                        node.ForeColor = Color.DarkRed;
+                        node.ForeColor = Options.DarkMode ? Color.OrangeRed : Color.DarkRed;
                     }
                     else if (!hasAnimation)
                     {
-                        node.ForeColor = !hasGump ? Color.Red : Color.Orange;
+                        node.ForeColor = !hasGump ? Options.DarkMode ? Color.OrangeRed : Color.Red : Color.Orange;
                     }
                     else if (!hasGump)
                     {
-                        node.ForeColor = Color.Blue;
+                        node.ForeColor = Options.DarkMode ? Color.CornflowerBlue : Color.Blue;
                     }
 
                     treeViewItems.Nodes.Add(node);
@@ -1243,8 +1243,8 @@ namespace UoFiddler.Controls.UserControls
             {
                 string fileName = Path.Combine(outputPath, $"Dress PD.{fileExtension}");
                 DressPic.Image.Save(fileName, imageFormat);
-                MessageBox.Show($"Paperdoll saved to {fileName}", "Saved", MessageBoxButtons.OK,
-                    MessageBoxIcon.Information, MessageBoxDefaultButton.Button1);
+
+                FileSavedDialog.Show(FindForm(), fileName, "Paperdoll saved successfully.");
             }
             else
             {
@@ -1258,8 +1258,8 @@ namespace UoFiddler.Controls.UserControls
                     DressPic.Image.Save(fileName, imageFormat);
                 }
 
-                MessageBox.Show($"InGame saved to {fileName}", "Saved", MessageBoxButtons.OK,
-                    MessageBoxIcon.Information, MessageBoxDefaultButton.Button1);
+
+                FileSavedDialog.Show(FindForm(), fileName, "InGame saved successfully.");
             }
         }
 
@@ -1295,8 +1295,7 @@ namespace UoFiddler.Controls.UserControls
                 _animation[i].Save(Path.Combine(path, $"{fileName}-{i}.{fileExtension}"), imageFormat);
             }
 
-            MessageBox.Show($"InGame Anim saved to '{fileName}-X.{fileExtension}'", "Saved", MessageBoxButtons.OK,
-                MessageBoxIcon.Information, MessageBoxDefaultButton.Button1);
+            FileSavedDialog.Show(FindForm(), path, "InGame Anim saved successfully.");
         }
 
         private void ExportAnimatedGif(bool looping)
@@ -1331,8 +1330,7 @@ namespace UoFiddler.Controls.UserControls
                 stream.WriteByte(0);
             }
 
-            MessageBox.Show($"InGame Anim saved to {outputFile}", "Saved", MessageBoxButtons.OK,
-                MessageBoxIcon.Information, MessageBoxDefaultButton.Button1);
+            FileSavedDialog.Show(FindForm(), outputFile, "InGame Anim saved successfully.");
         }
         private void OnClickExtractAnimGifLooping(object sender, EventArgs e)
         {
@@ -1606,8 +1604,7 @@ namespace UoFiddler.Controls.UserControls
                 tex.WriteLine("</table> </body> </html>");
             }
 
-            MessageBox.Show($"Report saved to '{fileName}'", "Saved", MessageBoxButtons.OK, MessageBoxIcon.Information,
-                MessageBoxDefaultButton.Button1);
+            FileSavedDialog.Show(FindForm(), fileName, "Report saved successfully.");
         }
 
         private void MountTextBoxOnKeyDown(object sender, KeyEventArgs e)
@@ -1687,8 +1684,67 @@ namespace UoFiddler.Controls.UserControls
             }
         }
 
+        protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
+        {
+            if (keyData == Keys.F3)
+            {
+                SearchByName();
+                return true;
+            }
+
+            if (keyData == (Keys.F3 | Keys.Shift))
+            {
+                SearchByNamePrevious();
+                return true;
+            }
+
+            return base.ProcessCmdKey(ref msg, keyData);
+        }
+
+        private void SearchByNamePrevious()
+        {
+            var searchText = SearchItemTextBox.Text.Trim();
+
+            if (string.IsNullOrEmpty(searchText))
+            {
+                return;
+            }
+
+            if (_lastSearchText != searchText)
+            {
+                _searchResults.Clear();
+                _lastSearchText = searchText;
+                _lastNodeIndex = 0;
+                SearchNodes(searchText, treeViewItems.Nodes[0]);
+            }
+
+            if (_searchResults.Count == 0)
+            {
+                return;
+            }
+
+            if (_lastNodeIndex >= _searchResults.Count)
+            {
+                _lastNodeIndex = 0;
+            }
+
+            _lastNodeIndex -= 2;
+            if (_lastNodeIndex < 0)
+            {
+                _lastNodeIndex = _searchResults.Count + _lastNodeIndex;
+            }
+
+            treeViewItems.SelectedNode = _searchResults[_lastNodeIndex];
+            _lastNodeIndex++;
+        }
+
         private void SearchItemTextBox_KeyUp(object sender, KeyEventArgs e)
         {
+            if (e.KeyCode == Keys.F3)
+            {
+                return;
+            }
+
             SearchByName();
         }
 

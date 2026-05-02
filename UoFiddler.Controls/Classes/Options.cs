@@ -12,27 +12,11 @@
 using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
-using Serilog;
 
 namespace UoFiddler.Controls.Classes
 {
     public static class Options
     {
-        /// <summary>
-        /// Logger instance
-        /// </summary>
-        public static ILogger Logger { get; private set; }
-
-        public static void SetLogger(ILogger logger)
-        {
-            Logger = logger;
-        }
-
-        /// <summary>
-        /// Should UOFiddler decompress cliloc files. For client version 7.104.0 or newer
-        /// </summary>
-        public static bool NewClilocFormat { get; set; }
-
         /// <summary>
         /// Defines Element Width in ItemShow
         /// </summary>
@@ -52,6 +36,11 @@ namespace UoFiddler.Controls.Classes
         /// Offsets the sound ids in Sound tab by 1 (POL specific setting)
         /// </summary>
         public static bool PolSoundIdOffset { get; set; }
+
+        /// <summary>
+        /// Runtime flag set from AppSettings at startup. Not persisted in profiles.
+        /// </summary>
+        public static bool DarkMode { get; set; }
 
         /// <summary>
         /// Defines the cmd to Send Client to Loc
@@ -192,7 +181,8 @@ namespace UoFiddler.Controls.Classes
             {17, true},
             {18, true},
             {19, true},
-            {20, true}
+            {20, true},
+            {21, true}
         };
 
         public static Icon GetFiddlerIcon()
@@ -206,8 +196,8 @@ namespace UoFiddler.Controls.Classes
         public static string ProfileName { get; set; }
         public static Color TileFocusColor { get; set; } = Color.DarkRed;
         public static Color TileSelectionColor { get; set; } = Color.DodgerBlue;
-        public static bool OverrideBackgroundColorFromTile { get; set; }
         public static bool RemoveTileBorder { get; set; }
+        public static Color PreviewBackgroundColor { get; set; } = Color.White;
 
         static Options()
         {

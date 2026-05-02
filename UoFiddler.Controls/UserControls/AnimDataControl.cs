@@ -193,11 +193,11 @@ namespace UoFiddler.Controls.UserControls
 
                 if (!Art.IsValidStatic(id))
                 {
-                    node.ForeColor = Color.Red;
+                    node.ForeColor = Options.DarkMode ? Color.OrangeRed : Color.Red;
                 }
                 else if ((TileData.ItemTable[id].Flags & TileFlag.Animation) == 0)
                 {
-                    node.ForeColor = Color.Blue;
+                    node.ForeColor = Options.DarkMode ? Color.CornflowerBlue : Color.Blue;
                 }
 
                 // TODO: find a better approach to this
@@ -441,11 +441,13 @@ namespace UoFiddler.Controls.UserControls
 
             if (canDone)
             {
-                textBoxAddFrame.ForeColor = !Art.IsValidStatic(index) ? Color.Red : Color.Black;
+                textBoxAddFrame.ForeColor = !Art.IsValidStatic(index)
+                    ? (Options.DarkMode ? Color.OrangeRed : Color.Red)
+                    : (Options.DarkMode ? Color.White : Color.Black);
             }
             else
             {
-                textBoxAddFrame.ForeColor = Color.Red;
+                textBoxAddFrame.ForeColor = Options.DarkMode ? Color.OrangeRed : Color.Red;
             }
         }
 
@@ -556,12 +558,9 @@ namespace UoFiddler.Controls.UserControls
             Cursor.Current = Cursors.WaitCursor;
             Animdata.Save(Options.OutputPath);
             Cursor.Current = Cursors.Default;
-            MessageBox.Show($"Saved to {Options.OutputPath}",
-                "Save",
-                MessageBoxButtons.OK,
-                MessageBoxIcon.Information,
-                MessageBoxDefaultButton.Button1);
             Options.ChangedUltimaClass["Animdata"] = false;
+
+            FileSavedDialog.Show(FindForm(), Options.OutputPath, "File saved successfully.");
         }
 
         private void OnClickRemoveAnim(object sender, EventArgs e)
@@ -588,11 +587,13 @@ namespace UoFiddler.Controls.UserControls
         {
             if (Utils.ConvertStringToInt(AddTextBox.Text, out int index, 0, Art.GetMaxItemId()))
             {
-                AddTextBox.ForeColor = Animdata.GetAnimData(index) != null ? Color.Red : Color.Black;
+                AddTextBox.ForeColor = Animdata.GetAnimData(index) != null
+                    ? (Options.DarkMode ? Color.OrangeRed : Color.Red)
+                    : (Options.DarkMode ? Color.White : Color.Black);
             }
             else
             {
-                AddTextBox.ForeColor = Color.Red;
+                AddTextBox.ForeColor = Options.DarkMode ? Color.OrangeRed : Color.Red;
             }
         }
 
@@ -622,7 +623,7 @@ namespace UoFiddler.Controls.UserControls
 
             if ((TileData.ItemTable[index].Flags & TileFlag.Animation) == 0)
             {
-                node.ForeColor = Color.Blue;
+                node.ForeColor = Options.DarkMode ? Color.CornflowerBlue : Color.Blue;
             }
             treeView1.Nodes.Add(node);
 

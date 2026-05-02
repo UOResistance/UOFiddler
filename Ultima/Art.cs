@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Imaging;
@@ -32,6 +33,70 @@ namespace Ultima
         {
             _cache = new Bitmap[0x14000];
             _removed = new bool[0x14000];
+        }
+
+        /// <summary>
+        /// Validates if a static bitmap will fit within the MUL format limits by computing
+        /// the exact encoded size. The format uses 16-bit lookup table offsets, limiting total
+        /// encoded data to 65,535 ushorts. A pixel is considered opaque when its alpha bit
+        /// (0x8000) is set in 16bppArgb1555 — callers that want pure-black/white treated as
+        /// transparent must run the bitmap through Utils.ConvertBmp first (mirrors the save path).
+        /// Per-row encoded cost: 2 ushorts header per opaque run + 1 ushort per opaque pixel + 2 end markers.
+        /// </summary>
+        /// <param name="bmp">The bitmap to validate</param>
+        /// <param name="estimatedSize">Encoded size in ushorts (output)</param>
+        /// <returns>True if the image fits, false if it exceeds limits</returns>
+        public static unsafe bool ValidateStaticSize(Bitmap bmp, out int estimatedSize)
+        {
+            estimatedSize = 0;
+            if (bmp == null || bmp.Width <= 0 || bmp.Height <= 0)
+            {
+                return true;
+            }
+
+            BitmapData bd = bmp.LockBits(
+                new Rectangle(0, 0, bmp.Width, bmp.Height), ImageLockMode.ReadOnly, PixelFormat.Format16bppArgb1555);
+
+            int total = 0;
+            try
+            {
+                var line = (ushort*)bd.Scan0;
+                int delta = bd.Stride >> 1;
+
+                for (int y = 0; y < bmp.Height; ++y, line += delta)
+                {
+                    ushort* cur = line;
+                    int x = 0;
+                    while (x < bmp.Width)
+                    {
+                        while (x < bmp.Width && (cur[x] & 0x8000) == 0)
+                        {
+                            ++x;
+                        }
+                        if (x >= bmp.Width)
+                        {
+                            break;
+                        }
+
+                        int runStart = x;
+                        while (x < bmp.Width && (cur[x] & 0x8000) != 0)
+                        {
+                            ++x;
+                        }
+                        total += 2 + (x - runStart);
+                    }
+                    total += 2;
+                }
+            }
+            finally
+            {
+                bmp.UnlockBits(bd);
+            }
+
+            estimatedSize = total;
+
+            const int maxUshorts = 65535;
+            return estimatedSize <= maxUshorts;
         }
 
         public static int GetMaxItemId()
@@ -101,10 +166,19 @@ namespace Ultima
         /// </summary>
         /// <param name="index"></param>
         /// <param name="bmp"></param>
+        /// <exception cref="ArgumentException">Thrown when the bitmap is too large for the MUL format</exception>
         public static void ReplaceStatic(int index, Bitmap bmp)
         {
             index = GetLegalItemId(index);
             index += 0x4000;
+
+            if (bmp != null && !ValidateStaticSize(bmp, out int estimatedSize))
+            {
+                throw new ArgumentException(
+                    $"Image is too large for MUL format. Estimated size: {estimatedSize} ushorts (max: 65535). " +
+                    $"Image dimensions: {bmp.Width}x{bmp.Height}. " +
+                    "Consider using a smaller image or one with more transparent pixels.");
+            }
 
             _cache[index] = bmp;
             _removed[index] = false;
@@ -181,7 +255,7 @@ namespace Ultima
             }
 
             stream.Seek(4, SeekOrigin.Current);
-            stream.Read(_validBuffer, 0, 4);
+            stream.ReadExactly(_validBuffer, 0, 4);
 
             short width = (short)(_validBuffer[0] | (_validBuffer[1] << 8));
             short height = (short)(_validBuffer[2] | (_validBuffer[3] << 8));
@@ -272,7 +346,7 @@ namespace Ultima
             }
 
             var buffer = new byte[length];
-            stream.Read(buffer, 0, length);
+            stream.ReadExactly(buffer, 0, length);
             stream.Close();
             return buffer;
         }
@@ -344,7 +418,7 @@ namespace Ultima
             }
 
             var buffer = new byte[length];
-            stream.Read(buffer, 0, length);
+            stream.ReadExactly(buffer, 0, length);
             stream.Close();
             return buffer;
         }
@@ -429,7 +503,7 @@ namespace Ultima
                 _streamBuffer = new byte[length];
             }
 
-            stream.Read(_streamBuffer, 0, length);
+            stream.ReadExactly(_streamBuffer, 0, length);
             stream.Close();
 
             Bitmap bmp;
@@ -504,7 +578,7 @@ namespace Ultima
                 _streamBuffer = new byte[length];
             }
 
-            stream.Read(_streamBuffer, 0, length);
+            stream.ReadExactly(_streamBuffer, 0, length);
             stream.Close();
             fixed (byte* binData = _streamBuffer)
             {
@@ -651,6 +725,19 @@ namespace Ultima
                         }
                         else
                         {
+                            // Validate static art size before encoding
+                            if (!ValidateStaticSize(bmp, out int estimatedSize))
+                            {
+                                // Skip this image and write empty entry
+                                binidx.Write(-1); // lookup
+                                binidx.Write(0);  // Length
+                                binidx.Write(-1); // extra
+                                System.Diagnostics.Debug.WriteLine(
+                                    $"Warning: Skipping static art at index {index - 0x4000} - " +
+                                    $"image too large ({bmp.Width}x{bmp.Height}, estimated {estimatedSize} ushorts, max 65535)");
+                                continue;
+                            }
+
                             byte[] imageData = bmp.ToArray(PixelFormat.Format16bppArgb1555).ToSha256();
                             if (CompareSaveImagesStatic(imageData, out ImageData resultImageData))
                             {
@@ -697,7 +784,7 @@ namespace Ultima
                                             continue;
                                         }
 
-                                        if (cur[i] != 0)
+                                        if ((cur[i] & 0x8000) != 0)
                                         {
                                             break;
                                         }
@@ -712,7 +799,7 @@ namespace Ultima
                                     for (j = i + 1; j < bmp.Width; ++j)
                                     {
                                         // next non set pixel
-                                        if (cur[j] == 0)
+                                        if ((cur[j] & 0x8000) == 0)
                                         {
                                             break;
                                         }

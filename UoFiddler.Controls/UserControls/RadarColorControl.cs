@@ -20,6 +20,7 @@ using System.Windows.Forms;
 using Ultima;
 using Ultima.Helpers;
 using UoFiddler.Controls.Classes;
+using UoFiddler.Controls.Forms;
 using UoFiddler.Controls.Helpers;
 
 namespace UoFiddler.Controls.UserControls
@@ -189,6 +190,9 @@ namespace UoFiddler.Controls.UserControls
             if (!IsLoaded)
             {
                 ControlEvents.FilePathChangeEvent += OnFilePathChangeEvent;
+                ControlEvents.PreviewBackgroundColorChangeEvent += OnPreviewBackgroundColorChanged;
+
+                pictureBoxArt.BackColor = Options.PreviewBackgroundColor;
             }
 
             IsLoaded = true;
@@ -198,6 +202,34 @@ namespace UoFiddler.Controls.UserControls
         private void OnFilePathChangeEvent()
         {
             Reload();
+        }
+
+        private void ChangeBackgroundColorToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (colorDialog.ShowDialog() != DialogResult.OK)
+            {
+                return;
+            }
+
+            Options.PreviewBackgroundColor = colorDialog.Color;
+            ControlEvents.FirePreviewBackgroundColorChangeEvent();
+        }
+
+        private void OnPreviewBackgroundColorChanged()
+        {
+            pictureBoxArt.BackColor = Options.PreviewBackgroundColor;
+
+            if (_selectedIndex >= 0)
+            {
+                if (tabControl2.SelectedIndex == 0)
+                {
+                    AfterSelectTreeViewItem(this, new TreeViewEventArgs(treeViewItem.SelectedNode));
+                }
+                else
+                {
+                    AfterSelectTreeViewLand(this, new TreeViewEventArgs(treeViewLand.SelectedNode));
+                }
+            }
         }
 
         private void AfterSelectTreeViewItem(object sender, TreeViewEventArgs e)
@@ -212,7 +244,7 @@ namespace UoFiddler.Controls.UserControls
                 Bitmap newBitmap = new Bitmap(pictureBoxArt.Size.Width, pictureBoxArt.Size.Height);
                 using (Graphics newGraphic = Graphics.FromImage(newBitmap))
                 {
-                    newGraphic.Clear(Color.FromArgb(-1));
+                    newGraphic.Clear(Options.PreviewBackgroundColor);
                     newGraphic.DrawImage(bitmap, (pictureBoxArt.Size.Width - bitmap.Width) / 2, 1);
                 }
 
@@ -241,7 +273,7 @@ namespace UoFiddler.Controls.UserControls
                 Bitmap newBitmap = new Bitmap(pictureBoxArt.Size.Width, pictureBoxArt.Size.Height);
                 using (Graphics newGraphic = Graphics.FromImage(newBitmap))
                 {
-                    newGraphic.Clear(Color.FromArgb(-1));
+                    newGraphic.Clear(Options.PreviewBackgroundColor);
                     newGraphic.DrawImage(bitmap, (pictureBoxArt.Size.Width - bitmap.Width) / 2, 1);
                 }
 
@@ -288,9 +320,9 @@ namespace UoFiddler.Controls.UserControls
                 node.ForeColor = SystemColors.WindowText;
             }
 
-            MessageBox.Show($"RadarCol saved to {fileName}", "Saved", MessageBoxButtons.OK, MessageBoxIcon.Information,
-                MessageBoxDefaultButton.Button1);
             Options.ChangedUltimaClass["RadarCol"] = false;
+
+            FileSavedDialog.Show(FindForm(), fileName, "RadarCol saved successfully.");
         }
 
         private void SaveColor()
@@ -799,8 +831,8 @@ namespace UoFiddler.Controls.UserControls
             string path = Options.OutputPath;
             string fileName = Path.Combine(path, "RadarColor.csv");
             RadarCol.ExportToCSV(fileName);
-            MessageBox.Show($"RadarColor saved to {fileName}", "Saved", MessageBoxButtons.OK,
-                MessageBoxIcon.Information, MessageBoxDefaultButton.Button1);
+
+            FileSavedDialog.Show(FindForm(), fileName, "RadarColor saved successfully.");
         }
 
         private void OnClickMeanColorAll(object sender, EventArgs e)

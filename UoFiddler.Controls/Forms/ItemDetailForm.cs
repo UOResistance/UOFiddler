@@ -10,6 +10,7 @@
  ***************************************************************************/
 
 using System;
+using System.ComponentModel;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
@@ -44,6 +45,7 @@ namespace UoFiddler.Controls.Forms
         /// <summary>
         /// Sets Hue
         /// </summary>
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
         public int Hue
         {
             get => _hue;
@@ -266,8 +268,7 @@ namespace UoFiddler.Controls.Forms
                 bit.Save(fileName, imageFormat);
             }
 
-            MessageBox.Show($"Item saved to {fileName}", "Saved", MessageBoxButtons.OK, MessageBoxIcon.Information,
-                MessageBoxDefaultButton.Button1);
+            FileSavedDialog.Show(FindForm(), fileName, "Item image saved successfully.");
         }
 
         private void OnSizeChange(object sender, EventArgs e)

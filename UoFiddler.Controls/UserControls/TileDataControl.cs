@@ -40,6 +40,9 @@ namespace UoFiddler.Controls.UserControls
 
             ControlEvents.FilePathChangeEvent += OnFilePathChangeEvent;
             ControlEvents.TileDataChangeEvent += OnTileDataChangeEvent;
+            ControlEvents.PreviewBackgroundColorChangeEvent += OnPreviewBackgroundColorChanged;
+
+            pictureBoxItem.BackColor = Options.PreviewBackgroundColor;
         }
 
         private void InitLandTilesFlagsCheckBoxes()
@@ -151,6 +154,32 @@ namespace UoFiddler.Controls.UserControls
             return false;
         }
 
+        protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
+        {
+            if (keyData == Keys.F3 || keyData == (Keys.F3 | Keys.Shift))
+            {
+                if (searchByNameToolStripTextBox.TextBox.Focused)
+                {
+                    return false;
+                }
+
+                if (!string.IsNullOrEmpty(searchByNameToolStripTextBox.Text))
+                {
+                    if (keyData == Keys.F3)
+                    {
+                        SearchName(searchByNameToolStripTextBox.Text, true, tabcontrol.SelectedIndex != 0);
+                    }
+                    else
+                    {
+                        SearchNamePrevious(searchByNameToolStripTextBox.Text, tabcontrol.SelectedIndex != 0);
+                    }
+                }
+                return true;
+            }
+
+            return base.ProcessCmdKey(ref msg, keyData);
+        }
+
         public static bool SearchName(string name, bool next, bool land)
         {
             int index = 0;
@@ -232,6 +261,92 @@ namespace UoFiddler.Controls.UserControls
                     }
 
                     sIndex = 0;
+                }
+            }
+
+            return false;
+        }
+
+        public static bool SearchNamePrevious(string name, bool land)
+        {
+            var searchMethod = SearchHelper.GetSearchMethod();
+
+            if (land)
+            {
+                int index = _refMarker.treeViewLand.Nodes.Count - 1;
+                if (_refMarker.treeViewLand.SelectedNode?.Index >= 0)
+                {
+                    index = _refMarker.treeViewLand.SelectedNode.Index - 1;
+                    if (index < 0)
+                    {
+                        index = _refMarker.treeViewLand.Nodes.Count - 1;
+                    }
+                }
+
+                for (int i = index; i >= 0; --i)
+                {
+                    TreeNode node = _refMarker.treeViewLand.Nodes[i];
+                    if (node.Tag == null)
+                    {
+                        continue;
+                    }
+
+                    var searchResult = searchMethod(name, TileData.LandTable[(int)node.Tag].Name);
+                    if (!searchResult.EntryFound)
+                    {
+                        continue;
+                    }
+
+                    _refMarker.tabcontrol.SelectTab(1);
+                    _refMarker.treeViewLand.SelectedNode = node;
+                    node.EnsureVisible();
+                    return true;
+                }
+            }
+            else
+            {
+                int parentIndex = _refMarker.treeViewItem.Nodes.Count - 1;
+                int sIndex = -1;
+
+                if (_refMarker.treeViewItem.SelectedNode != null)
+                {
+                    if (_refMarker.treeViewItem.SelectedNode.Parent != null)
+                    {
+                        parentIndex = _refMarker.treeViewItem.SelectedNode.Parent.Index;
+                        sIndex = _refMarker.treeViewItem.SelectedNode.Index - 1;
+                    }
+                    else
+                    {
+                        parentIndex = _refMarker.treeViewItem.SelectedNode.Index;
+                    }
+                }
+
+                for (int i = parentIndex; i >= 0; --i)
+                {
+                    var parentNode = _refMarker.treeViewItem.Nodes[i];
+                    int startChild = sIndex >= 0 ? sIndex : parentNode.Nodes.Count - 1;
+
+                    for (int j = startChild; j >= 0; --j)
+                    {
+                        TreeNode node = parentNode.Nodes[j];
+                        if (node.Tag == null)
+                        {
+                            continue;
+                        }
+
+                        var searchResult = searchMethod(name, TileData.ItemTable[(int)node.Tag].Name);
+                        if (!searchResult.EntryFound)
+                        {
+                            continue;
+                        }
+
+                        _refMarker.tabcontrol.SelectTab(0);
+                        _refMarker.treeViewItem.SelectedNode = node;
+                        node.EnsureVisible();
+                        return true;
+                    }
+
+                    sIndex = -1;
                 }
             }
 
@@ -502,6 +617,33 @@ namespace UoFiddler.Controls.UserControls
             Reload();
         }
 
+        private void ChangeBackgroundColorToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (colorDialog.ShowDialog() != DialogResult.OK)
+            {
+                return;
+            }
+
+            Options.PreviewBackgroundColor = colorDialog.Color;
+            ControlEvents.FirePreviewBackgroundColorChangeEvent();
+        }
+
+        private void OnPreviewBackgroundColorChanged()
+        {
+            pictureBoxItem.BackColor = Options.PreviewBackgroundColor;
+            pictureBoxLand.BackColor = Options.PreviewBackgroundColor;
+
+            if (treeViewItem.SelectedNode != null)
+            {
+                AfterSelectTreeViewItem(this, new TreeViewEventArgs(treeViewItem.SelectedNode));
+            }
+
+            if (treeViewLand.SelectedNode != null)
+            {
+                AfterSelectTreeViewLand(this, new TreeViewEventArgs(treeViewLand.SelectedNode));
+            }
+        }
+
         private void OnTileDataChangeEvent(object sender, int index)
         {
             if (!IsLoaded)
@@ -523,7 +665,7 @@ namespace UoFiddler.Controls.UserControls
 
                 if ((int)treeViewItem.SelectedNode.Tag == index)
                 {
-                    treeViewItem.SelectedNode.ForeColor = Color.Red;
+                    treeViewItem.SelectedNode.ForeColor = (Options.DarkMode ? Color.OrangeRed : Color.Red);
                     AfterSelectTreeViewItem(this, new TreeViewEventArgs(treeViewItem.SelectedNode));
                 }
                 else
@@ -537,7 +679,7 @@ namespace UoFiddler.Controls.UserControls
                                 continue;
                             }
 
-                            node.ForeColor = Color.Red;
+                            node.ForeColor = (Options.DarkMode ? Color.OrangeRed : Color.Red);
                             break;
                         }
                     }
@@ -552,7 +694,7 @@ namespace UoFiddler.Controls.UserControls
 
                 if ((int)treeViewLand.SelectedNode.Tag == index)
                 {
-                    treeViewLand.SelectedNode.ForeColor = Color.Red;
+                    treeViewLand.SelectedNode.ForeColor = (Options.DarkMode ? Color.OrangeRed : Color.Red);
                     AfterSelectTreeViewLand(this, new TreeViewEventArgs(treeViewLand.SelectedNode));
                 }
                 else
@@ -564,7 +706,7 @@ namespace UoFiddler.Controls.UserControls
                             continue;
                         }
 
-                        node.ForeColor = Color.Red;
+                        node.ForeColor = (Options.DarkMode ? Color.OrangeRed : Color.Red);
                         break;
                     }
                 }
@@ -586,7 +728,7 @@ namespace UoFiddler.Controls.UserControls
                 Bitmap newBit = new Bitmap(pictureBoxItem.Size.Width, pictureBoxItem.Size.Height);
                 using (Graphics newGraph = Graphics.FromImage(newBit))
                 {
-                    newGraph.Clear(Color.FromArgb(-1));
+                    newGraph.Clear(Options.PreviewBackgroundColor);
                     newGraph.DrawImage(bit, (pictureBoxItem.Size.Width - bit.Width) / 2, 1);
                 }
 
@@ -637,7 +779,7 @@ namespace UoFiddler.Controls.UserControls
                 Bitmap newBit = new Bitmap(pictureBoxLand.Size.Width, pictureBoxLand.Size.Height);
                 using (Graphics newGraph = Graphics.FromImage(newBit))
                 {
-                    newGraph.Clear(Color.FromArgb(-1));
+                    newGraph.Clear(Options.PreviewBackgroundColor);
                     newGraph.DrawImage(bit, (pictureBoxLand.Size.Width - bit.Width) / 2, 1);
                 }
 
@@ -666,12 +808,10 @@ namespace UoFiddler.Controls.UserControls
 
         private void OnClickSaveTiledata(object sender, EventArgs e)
         {
-            string path = Options.OutputPath;
-            string fileName = Path.Combine(path, "tiledata.mul");
+            string fileName = Path.Combine(Options.OutputPath, "tiledata.mul");
             TileData.SaveTileData(fileName);
-            MessageBox.Show($"TileData saved to {fileName}", "Saved", MessageBoxButtons.OK, MessageBoxIcon.Information,
-                MessageBoxDefaultButton.Button1);
             Options.ChangedUltimaClass["TileData"] = false;
+            FileSavedDialog.Show(FindForm(), fileName, "TileData saved successfully.");
         }
 
         private void OnClickSaveChanges(object sender, EventArgs e)
@@ -759,7 +899,7 @@ namespace UoFiddler.Controls.UserControls
                 }
 
                 TileData.ItemTable[index] = item;
-                treeViewItem.SelectedNode.ForeColor = Color.Red;
+                treeViewItem.SelectedNode.ForeColor = (Options.DarkMode ? Color.OrangeRed : Color.Red);
                 Options.ChangedUltimaClass["TileData"] = true;
                 ControlEvents.FireTileDataChangeEvent(this, index + 0x4000);
                 if (memorySaveWarningToolStripMenuItem.Checked)
@@ -805,7 +945,7 @@ namespace UoFiddler.Controls.UserControls
                 TileData.LandTable[index] = land;
                 Options.ChangedUltimaClass["TileData"] = true;
                 ControlEvents.FireTileDataChangeEvent(this, index);
-                treeViewLand.SelectedNode.ForeColor = Color.Red;
+                treeViewLand.SelectedNode.ForeColor = (Options.DarkMode ? Color.OrangeRed : Color.Red);
                 if (memorySaveWarningToolStripMenuItem.Checked)
                 {
                     MessageBox.Show(
@@ -847,7 +987,7 @@ namespace UoFiddler.Controls.UserControls
             ItemData item = TileData.ItemTable[index];
             item.Animation = shortRes;
             TileData.ItemTable[index] = item;
-            treeViewItem.SelectedNode.ForeColor = Color.Red;
+            treeViewItem.SelectedNode.ForeColor = (Options.DarkMode ? Color.OrangeRed : Color.Red);
             Options.ChangedUltimaClass["TileData"] = true;
             ControlEvents.FireTileDataChangeEvent(this, index + 0x4000);
         }
@@ -885,7 +1025,7 @@ namespace UoFiddler.Controls.UserControls
             item.Name = name;
 
             TileData.ItemTable[index] = item;
-            treeViewItem.SelectedNode.ForeColor = Color.Red;
+            treeViewItem.SelectedNode.ForeColor = (Options.DarkMode ? Color.OrangeRed : Color.Red);
             Options.ChangedUltimaClass["TileData"] = true;
             ControlEvents.FireTileDataChangeEvent(this, index + 0x4000);
         }
@@ -938,7 +1078,7 @@ namespace UoFiddler.Controls.UserControls
             ItemData item = TileData.ItemTable[index];
             item.Weight = byteRes;
             TileData.ItemTable[index] = item;
-            treeViewItem.SelectedNode.ForeColor = Color.Red;
+            treeViewItem.SelectedNode.ForeColor = (Options.DarkMode ? Color.OrangeRed : Color.Red);
             Options.ChangedUltimaClass["TileData"] = true;
             ControlEvents.FireTileDataChangeEvent(this, index + 0x4000);
         }
@@ -969,7 +1109,7 @@ namespace UoFiddler.Controls.UserControls
             ItemData item = TileData.ItemTable[index];
             item.Quality = byteRes;
             TileData.ItemTable[index] = item;
-            treeViewItem.SelectedNode.ForeColor = Color.Red;
+            treeViewItem.SelectedNode.ForeColor = (Options.DarkMode ? Color.OrangeRed : Color.Red);
             Options.ChangedUltimaClass["TileData"] = true;
             ControlEvents.FireTileDataChangeEvent(this, index + 0x4000);
         }
@@ -1000,7 +1140,7 @@ namespace UoFiddler.Controls.UserControls
             ItemData item = TileData.ItemTable[index];
             item.Quantity = byteRes;
             TileData.ItemTable[index] = item;
-            treeViewItem.SelectedNode.ForeColor = Color.Red;
+            treeViewItem.SelectedNode.ForeColor = (Options.DarkMode ? Color.OrangeRed : Color.Red);
             Options.ChangedUltimaClass["TileData"] = true;
             ControlEvents.FireTileDataChangeEvent(this, index + 0x4000);
         }
@@ -1031,7 +1171,7 @@ namespace UoFiddler.Controls.UserControls
             ItemData item = TileData.ItemTable[index];
             item.Hue = byteRes;
             TileData.ItemTable[index] = item;
-            treeViewItem.SelectedNode.ForeColor = Color.Red;
+            treeViewItem.SelectedNode.ForeColor = (Options.DarkMode ? Color.OrangeRed : Color.Red);
             Options.ChangedUltimaClass["TileData"] = true;
             ControlEvents.FireTileDataChangeEvent(this, index + 0x4000);
         }
@@ -1062,7 +1202,7 @@ namespace UoFiddler.Controls.UserControls
             ItemData item = TileData.ItemTable[index];
             item.StackingOffset = byteRes;
             TileData.ItemTable[index] = item;
-            treeViewItem.SelectedNode.ForeColor = Color.Red;
+            treeViewItem.SelectedNode.ForeColor = (Options.DarkMode ? Color.OrangeRed : Color.Red);
             Options.ChangedUltimaClass["TileData"] = true;
             ControlEvents.FireTileDataChangeEvent(this, index + 0x4000);
         }
@@ -1093,7 +1233,7 @@ namespace UoFiddler.Controls.UserControls
             ItemData item = TileData.ItemTable[index];
             item.Value = byteRes;
             TileData.ItemTable[index] = item;
-            treeViewItem.SelectedNode.ForeColor = Color.Red;
+            treeViewItem.SelectedNode.ForeColor = (Options.DarkMode ? Color.OrangeRed : Color.Red);
             Options.ChangedUltimaClass["TileData"] = true;
             ControlEvents.FireTileDataChangeEvent(this, index + 0x4000);
         }
@@ -1124,7 +1264,7 @@ namespace UoFiddler.Controls.UserControls
             ItemData item = TileData.ItemTable[index];
             item.Height = byteRes;
             TileData.ItemTable[index] = item;
-            treeViewItem.SelectedNode.ForeColor = Color.Red;
+            treeViewItem.SelectedNode.ForeColor = (Options.DarkMode ? Color.OrangeRed : Color.Red);
             Options.ChangedUltimaClass["TileData"] = true;
             ControlEvents.FireTileDataChangeEvent(this, index + 0x4000);
         }
@@ -1155,7 +1295,7 @@ namespace UoFiddler.Controls.UserControls
             ItemData item = TileData.ItemTable[index];
             item.MiscData = shortRes;
             TileData.ItemTable[index] = item;
-            treeViewItem.SelectedNode.ForeColor = Color.Red;
+            treeViewItem.SelectedNode.ForeColor = (Options.DarkMode ? Color.OrangeRed : Color.Red);
             Options.ChangedUltimaClass["TileData"] = true;
             ControlEvents.FireTileDataChangeEvent(this, index + 0x4000);
         }
@@ -1186,7 +1326,7 @@ namespace UoFiddler.Controls.UserControls
             ItemData item = TileData.ItemTable[index];
             item.Unk2 = byteRes;
             TileData.ItemTable[index] = item;
-            treeViewItem.SelectedNode.ForeColor = Color.Red;
+            treeViewItem.SelectedNode.ForeColor = (Options.DarkMode ? Color.OrangeRed : Color.Red);
             Options.ChangedUltimaClass["TileData"] = true;
             ControlEvents.FireTileDataChangeEvent(this, index + 0x4000);
         }
@@ -1217,7 +1357,7 @@ namespace UoFiddler.Controls.UserControls
             ItemData item = TileData.ItemTable[index];
             item.Unk3 = byteRes;
             TileData.ItemTable[index] = item;
-            treeViewItem.SelectedNode.ForeColor = Color.Red;
+            treeViewItem.SelectedNode.ForeColor = (Options.DarkMode ? Color.OrangeRed : Color.Red);
             Options.ChangedUltimaClass["TileData"] = true;
             ControlEvents.FireTileDataChangeEvent(this, index + 0x4000);
         }
@@ -1255,7 +1395,7 @@ namespace UoFiddler.Controls.UserControls
             land.Name = name;
             treeViewLand.SelectedNode.Text = string.Format("0x{0:X4} ({0}) {1}", index, name);
             TileData.LandTable[index] = land;
-            treeViewLand.SelectedNode.ForeColor = Color.Red;
+            treeViewLand.SelectedNode.ForeColor = (Options.DarkMode ? Color.OrangeRed : Color.Red);
             Options.ChangedUltimaClass["TileData"] = true;
             ControlEvents.FireTileDataChangeEvent(this, index);
         }
@@ -1286,7 +1426,7 @@ namespace UoFiddler.Controls.UserControls
             LandData land = TileData.LandTable[index];
             land.TextureId = shortRes;
             TileData.LandTable[index] = land;
-            treeViewLand.SelectedNode.ForeColor = Color.Red;
+            treeViewLand.SelectedNode.ForeColor = (Options.DarkMode ? Color.OrangeRed : Color.Red);
             Options.ChangedUltimaClass["TileData"] = true;
             ControlEvents.FireTileDataChangeEvent(this, index);
         }
@@ -1328,7 +1468,7 @@ namespace UoFiddler.Controls.UserControls
 
                 item.Flags ^= changeFlag;
                 TileData.ItemTable[index] = item;
-                treeViewItem.SelectedNode.ForeColor = Color.Red;
+                treeViewItem.SelectedNode.ForeColor = (Options.DarkMode ? Color.OrangeRed : Color.Red);
                 Options.ChangedUltimaClass["TileData"] = true;
                 ControlEvents.FireTileDataChangeEvent(this, index + 0x4000);
             }
@@ -1341,7 +1481,7 @@ namespace UoFiddler.Controls.UserControls
 
                 item.Flags |= changeFlag;
                 TileData.ItemTable[index] = item;
-                treeViewItem.SelectedNode.ForeColor = Color.Red;
+                treeViewItem.SelectedNode.ForeColor = (Options.DarkMode ? Color.OrangeRed : Color.Red);
                 Options.ChangedUltimaClass["TileData"] = true;
                 ControlEvents.FireTileDataChangeEvent(this, index + 0x4000);
             }
@@ -1408,7 +1548,7 @@ namespace UoFiddler.Controls.UserControls
 
                 land.Flags ^= changeFlag;
                 TileData.LandTable[index] = land;
-                treeViewLand.SelectedNode.ForeColor = Color.Red;
+                treeViewLand.SelectedNode.ForeColor = (Options.DarkMode ? Color.OrangeRed : Color.Red);
                 Options.ChangedUltimaClass["TileData"] = true;
                 ControlEvents.FireTileDataChangeEvent(this, index);
             }
@@ -1421,7 +1561,7 @@ namespace UoFiddler.Controls.UserControls
 
                 land.Flags |= changeFlag;
                 TileData.LandTable[index] = land;
-                treeViewLand.SelectedNode.ForeColor = Color.Red;
+                treeViewLand.SelectedNode.ForeColor = (Options.DarkMode ? Color.OrangeRed : Color.Red);
                 Options.ChangedUltimaClass["TileData"] = true;
                 ControlEvents.FireTileDataChangeEvent(this, index);
             }
@@ -1434,13 +1574,15 @@ namespace UoFiddler.Controls.UserControls
             {
                 string fileName = Path.Combine(path, "ItemData.csv");
                 TileData.ExportItemDataToCsv(fileName);
-                MessageBox.Show($"ItemData saved to {fileName}", "Saved", MessageBoxButtons.OK, MessageBoxIcon.Information, MessageBoxDefaultButton.Button1);
+
+                FileSavedDialog.Show(FindForm(), fileName, "ItemData saved successfully.");
             }
             else
             {
                 string fileName = Path.Combine(path, "LandData.csv");
                 TileData.ExportLandDataToCsv(fileName);
-                MessageBox.Show($"LandData saved to {fileName}", "Saved", MessageBoxButtons.OK, MessageBoxIcon.Information, MessageBoxDefaultButton.Button1);
+
+                FileSavedDialog.Show(FindForm(), fileName, "LandData saved successfully.");
             }
         }
         private void OnClickSelectItem(object sender, EventArgs e)
@@ -1514,13 +1656,13 @@ namespace UoFiddler.Controls.UserControls
                 if (tabcontrol.SelectedIndex == 0) // items
                 {
                     TileData.ImportItemDataFromCsv(dialog.FileName);
-                    AfterSelectTreeViewItem(this, new TreeViewEventArgs(treeViewItem.SelectedNode));
                 }
                 else
                 {
                     TileData.ImportLandDataFromCsv(dialog.FileName);
-                    AfterSelectTreeViewLand(this, new TreeViewEventArgs(treeViewLand.SelectedNode));
                 }
+
+                Reload();
             }
         }
 
@@ -1664,7 +1806,7 @@ namespace UoFiddler.Controls.UserControls
                 var node = treeViewLand.Nodes.OfType<TreeNode>().FirstOrDefault(x => x.Tag.Equals(i));
                 if (node != null)
                 {
-                    node.ForeColor = Color.Red;
+                    node.ForeColor = (Options.DarkMode ? Color.OrangeRed : Color.Red);
                 }
 
                 updated++;
@@ -1703,6 +1845,19 @@ namespace UoFiddler.Controls.UserControls
         {
             var landTilesSelected = tabcontrol.SelectedIndex != 0;
 
+            if (e.KeyCode == Keys.F3)
+            {
+                if (e.Shift)
+                {
+                    SearchNamePrevious(searchByNameToolStripTextBox.Text, landTilesSelected);
+                }
+                else
+                {
+                    SearchName(searchByNameToolStripTextBox.Text, true, landTilesSelected);
+                }
+                return;
+            }
+
             SearchName(searchByNameToolStripTextBox.Text, false, landTilesSelected);
         }
 
@@ -1711,6 +1866,12 @@ namespace UoFiddler.Controls.UserControls
             var landTilesSelected = tabcontrol.SelectedIndex != 0;
 
             SearchName(searchByNameToolStripTextBox.Text, true, landTilesSelected);
+        }
+
+        private void HelpToolStripButton_Click(object sender, EventArgs e)
+        {
+            using var form = new TileDataHelpForm();
+            form.ShowDialog(this);
         }
 
         private void AssignToolTipsToLabels()

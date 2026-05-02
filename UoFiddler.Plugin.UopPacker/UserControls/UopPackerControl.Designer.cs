@@ -39,6 +39,8 @@ namespace UoFiddler.Plugin.UopPacker.UserControls
         /// </summary>
         private void InitializeComponent()
         {
+            components = new System.ComponentModel.Container();
+            System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(UopPackerControl));
             label1 = new System.Windows.Forms.Label();
             label2 = new System.Windows.Forms.Label();
             inmul = new System.Windows.Forms.TextBox();
@@ -46,15 +48,19 @@ namespace UoFiddler.Plugin.UopPacker.UserControls
             label3 = new System.Windows.Forms.Label();
             inmulbtn = new System.Windows.Forms.Button();
             inidxbtn = new System.Windows.Forms.Button();
+            inhousingbin = new System.Windows.Forms.TextBox();
+            inhousingbinbtn = new System.Windows.Forms.Button();
+            labelHousingBin = new System.Windows.Forms.Label();
             multouop = new System.Windows.Forms.Button();
             FileDialog = new System.Windows.Forms.OpenFileDialog();
-            outuop = new System.Windows.Forms.TextBox();
+            outuopfolder = new System.Windows.Forms.TextBox();
+            outputUopFileLabel = new System.Windows.Forms.Label();
             label7 = new System.Windows.Forms.Label();
             multype = new System.Windows.Forms.ComboBox();
             label4 = new System.Windows.Forms.Label();
             label5 = new System.Windows.Forms.Label();
             mulMapIndex = new System.Windows.Forms.NumericUpDown();
-            outuopbtn = new System.Windows.Forms.Button();
+            outuopfolderbtn = new System.Windows.Forms.Button();
             inuopbtn = new System.Windows.Forms.Button();
             uopMapIndex = new System.Windows.Forms.NumericUpDown();
             label6 = new System.Windows.Forms.Label();
@@ -63,11 +69,9 @@ namespace UoFiddler.Plugin.UopPacker.UserControls
             inuop = new System.Windows.Forms.TextBox();
             label9 = new System.Windows.Forms.Label();
             uoptomul = new System.Windows.Forms.Button();
-            outidxbtn = new System.Windows.Forms.Button();
-            outmulbtn = new System.Windows.Forms.Button();
-            outidx = new System.Windows.Forms.TextBox();
-            label10 = new System.Windows.Forms.Label();
-            outmul = new System.Windows.Forms.TextBox();
+            outfolderbtn = new System.Windows.Forms.Button();
+            outputFilesLabel = new System.Windows.Forms.Label();
+            outfolder = new System.Windows.Forms.TextBox();
             label11 = new System.Windows.Forms.Label();
             label12 = new System.Windows.Forms.Label();
             OperationTypeTabControl = new System.Windows.Forms.TabControl();
@@ -78,11 +82,18 @@ namespace UoFiddler.Plugin.UopPacker.UserControls
             toolStripStatusLabel2 = new System.Windows.Forms.ToolStripStatusLabel();
             pack = new System.Windows.Forms.RadioButton();
             extract = new System.Windows.Forms.RadioButton();
+            packAllGumpCompressionLabel = new System.Windows.Forms.Label();
+            packAllGumpCompressionBox = new System.Windows.Forms.ComboBox();
+            packAllHousingBinLabel = new System.Windows.Forms.Label();
+            packAllHousingBin = new System.Windows.Forms.TextBox();
+            packAllHousingBinBtn = new System.Windows.Forms.Button();
             label13 = new System.Windows.Forms.Label();
             inputfolder = new System.Windows.Forms.TextBox();
             SelectFolderButton = new System.Windows.Forms.Button();
             ExtractSingleFileTabPage = new System.Windows.Forms.TabPage();
             compressionBox = new System.Windows.Forms.ComboBox();
+            compressionLabel = new System.Windows.Forms.Label();
+            compressionTip = new System.Windows.Forms.ToolTip(components);
             MainStatusStrip = new System.Windows.Forms.StatusStrip();
             toolStripStatusLabel1 = new System.Windows.Forms.ToolStripStatusLabel();
             guilabel = new System.Windows.Forms.ToolStripStatusLabel();
@@ -115,7 +126,7 @@ namespace UoFiddler.Plugin.UopPacker.UserControls
             // label2
             // 
             label2.AutoSize = true;
-            label2.Location = new System.Drawing.Point(35, 42);
+            label2.Location = new System.Drawing.Point(47, 72);
             label2.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
             label2.Name = "label2";
             label2.Size = new System.Drawing.Size(63, 15);
@@ -125,25 +136,25 @@ namespace UoFiddler.Plugin.UopPacker.UserControls
             // inmul
             // 
             inmul.BackColor = System.Drawing.Color.White;
-            inmul.Location = new System.Drawing.Point(118, 38);
+            inmul.Location = new System.Drawing.Point(118, 68);
             inmul.Margin = new System.Windows.Forms.Padding(4, 3, 4, 3);
             inmul.Name = "inmul";
             inmul.Size = new System.Drawing.Size(241, 23);
-            inmul.TabIndex = 2;
+            inmul.TabIndex = 1;
             // 
             // inidx
             // 
             inidx.BackColor = System.Drawing.Color.White;
-            inidx.Location = new System.Drawing.Point(118, 68);
+            inidx.Location = new System.Drawing.Point(118, 98);
             inidx.Margin = new System.Windows.Forms.Padding(4, 3, 4, 3);
             inidx.Name = "inidx";
             inidx.Size = new System.Drawing.Size(241, 23);
-            inidx.TabIndex = 4;
+            inidx.TabIndex = 3;
             // 
             // label3
             // 
             label3.AutoSize = true;
-            label3.Location = new System.Drawing.Point(35, 72);
+            label3.Location = new System.Drawing.Point(54, 102);
             label3.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
             label3.Name = "label3";
             label3.Size = new System.Drawing.Size(56, 15);
@@ -152,33 +163,63 @@ namespace UoFiddler.Plugin.UopPacker.UserControls
             // 
             // inmulbtn
             // 
-            inmulbtn.Location = new System.Drawing.Point(366, 38);
+            inmulbtn.Location = new System.Drawing.Point(366, 68);
             inmulbtn.Margin = new System.Windows.Forms.Padding(4, 3, 4, 3);
             inmulbtn.Name = "inmulbtn";
             inmulbtn.Size = new System.Drawing.Size(31, 23);
-            inmulbtn.TabIndex = 5;
+            inmulbtn.TabIndex = 2;
             inmulbtn.Text = "...";
             inmulbtn.UseVisualStyleBackColor = true;
             inmulbtn.Click += InputMulSelect;
             // 
             // inidxbtn
             // 
-            inidxbtn.Location = new System.Drawing.Point(366, 68);
+            inidxbtn.Location = new System.Drawing.Point(366, 98);
             inidxbtn.Margin = new System.Windows.Forms.Padding(4, 3, 4, 3);
             inidxbtn.Name = "inidxbtn";
             inidxbtn.Size = new System.Drawing.Size(31, 23);
-            inidxbtn.TabIndex = 6;
+            inidxbtn.TabIndex = 4;
             inidxbtn.Text = "...";
             inidxbtn.UseVisualStyleBackColor = true;
             inidxbtn.Click += InputIdxSelect;
+            // 
+            // inhousingbin
+            // 
+            inhousingbin.BackColor = System.Drawing.Color.White;
+            inhousingbin.Location = new System.Drawing.Point(118, 128);
+            inhousingbin.Margin = new System.Windows.Forms.Padding(4, 3, 4, 3);
+            inhousingbin.Name = "inhousingbin";
+            inhousingbin.Size = new System.Drawing.Size(241, 23);
+            inhousingbin.TabIndex = 5;
+            // 
+            // inhousingbinbtn
+            // 
+            inhousingbinbtn.Location = new System.Drawing.Point(366, 128);
+            inhousingbinbtn.Margin = new System.Windows.Forms.Padding(4, 3, 4, 3);
+            inhousingbinbtn.Name = "inhousingbinbtn";
+            inhousingbinbtn.Size = new System.Drawing.Size(31, 23);
+            inhousingbinbtn.TabIndex = 6;
+            inhousingbinbtn.Text = "...";
+            inhousingbinbtn.UseVisualStyleBackColor = true;
+            inhousingbinbtn.Click += InputHousingBinSelect;
+            // 
+            // labelHousingBin
+            // 
+            labelHousingBin.AutoSize = true;
+            labelHousingBin.Location = new System.Drawing.Point(9, 132);
+            labelHousingBin.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
+            labelHousingBin.Name = "labelHousingBin";
+            labelHousingBin.Size = new System.Drawing.Size(101, 15);
+            labelHousingBin.TabIndex = 43;
+            labelHousingBin.Text = "Input housing.bin";
             // 
             // multouop
             // 
             multouop.Location = new System.Drawing.Point(405, 38);
             multouop.Margin = new System.Windows.Forms.Padding(4, 3, 4, 3);
             multouop.Name = "multouop";
-            multouop.Size = new System.Drawing.Size(102, 150);
-            multouop.TabIndex = 7;
+            multouop.Size = new System.Drawing.Size(102, 173);
+            multouop.TabIndex = 11;
             multouop.Text = "Convert";
             multouop.UseVisualStyleBackColor = true;
             multouop.Click += ToUop;
@@ -186,41 +227,51 @@ namespace UoFiddler.Plugin.UopPacker.UserControls
             // FileDialog
             // 
             FileDialog.CheckFileExists = false;
-            FileDialog.Filter = "MUL|*.mul|UOP|*.uop|IDX|*.idx";
+            FileDialog.Filter = "MUL|*.mul|UOP|*.uop|IDX|*.idx|BIN|*.bin";
             // 
-            // outuop
+            // outuopfolder
             // 
-            outuop.BackColor = System.Drawing.Color.White;
-            outuop.Location = new System.Drawing.Point(118, 165);
-            outuop.Margin = new System.Windows.Forms.Padding(4, 3, 4, 3);
-            outuop.Name = "outuop";
-            outuop.Size = new System.Drawing.Size(241, 23);
-            outuop.TabIndex = 17;
+            outuopfolder.BackColor = System.Drawing.Color.White;
+            outuopfolder.Location = new System.Drawing.Point(118, 188);
+            outuopfolder.Margin = new System.Windows.Forms.Padding(4, 3, 4, 3);
+            outuopfolder.Name = "outuopfolder";
+            outuopfolder.Size = new System.Drawing.Size(241, 23);
+            outuopfolder.TabIndex = 9;
+            // 
+            // outputUopFileLabel
+            // 
+            outputUopFileLabel.AutoSize = true;
+            outputUopFileLabel.ForeColor = System.Drawing.SystemColors.GrayText;
+            outputUopFileLabel.Location = new System.Drawing.Point(118, 215);
+            outputUopFileLabel.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
+            outputUopFileLabel.Name = "outputUopFileLabel";
+            outputUopFileLabel.Size = new System.Drawing.Size(0, 15);
+            outputUopFileLabel.TabIndex = 45;
             // 
             // label7
             // 
             label7.AutoSize = true;
-            label7.Location = new System.Drawing.Point(35, 168);
+            label7.Location = new System.Drawing.Point(31, 192);
             label7.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
             label7.Name = "label7";
-            label7.Size = new System.Drawing.Size(72, 15);
+            label7.Size = new System.Drawing.Size(79, 15);
             label7.TabIndex = 16;
-            label7.Text = "Output UOP";
+            label7.Text = "Output folder";
             // 
             // multype
             // 
             multype.BackColor = System.Drawing.Color.White;
-            multype.Location = new System.Drawing.Point(118, 99);
+            multype.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            multype.Location = new System.Drawing.Point(118, 38);
             multype.Margin = new System.Windows.Forms.Padding(4, 3, 4, 3);
             multype.Name = "multype";
             multype.Size = new System.Drawing.Size(241, 23);
-            multype.TabIndex = 19;
-            multype.Text = "File Type";
+            multype.TabIndex = 0;
             // 
             // label4
             // 
             label4.AutoSize = true;
-            label4.Location = new System.Drawing.Point(35, 103);
+            label4.Location = new System.Drawing.Point(49, 41);
             label4.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
             label4.Name = "label4";
             label4.Size = new System.Drawing.Size(61, 15);
@@ -230,7 +281,7 @@ namespace UoFiddler.Plugin.UopPacker.UserControls
             // label5
             // 
             label5.AutoSize = true;
-            label5.Location = new System.Drawing.Point(35, 137);
+            label5.Location = new System.Drawing.Point(54, 161);
             label5.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
             label5.Name = "label5";
             label5.Size = new System.Drawing.Size(56, 15);
@@ -240,32 +291,32 @@ namespace UoFiddler.Plugin.UopPacker.UserControls
             // mulMapIndex
             // 
             mulMapIndex.BackColor = System.Drawing.Color.White;
-            mulMapIndex.Location = new System.Drawing.Point(118, 135);
+            mulMapIndex.Location = new System.Drawing.Point(118, 158);
             mulMapIndex.Margin = new System.Windows.Forms.Padding(4, 3, 4, 3);
             mulMapIndex.Maximum = new decimal(new int[] { 5, 0, 0, 0 });
             mulMapIndex.Name = "mulMapIndex";
             mulMapIndex.ReadOnly = true;
             mulMapIndex.Size = new System.Drawing.Size(42, 23);
-            mulMapIndex.TabIndex = 22;
+            mulMapIndex.TabIndex = 7;
             // 
-            // outuopbtn
+            // outuopfolderbtn
             // 
-            outuopbtn.Location = new System.Drawing.Point(366, 165);
-            outuopbtn.Margin = new System.Windows.Forms.Padding(4, 3, 4, 3);
-            outuopbtn.Name = "outuopbtn";
-            outuopbtn.Size = new System.Drawing.Size(31, 23);
-            outuopbtn.TabIndex = 23;
-            outuopbtn.Text = "...";
-            outuopbtn.UseVisualStyleBackColor = true;
-            outuopbtn.Click += OutputUopSelect;
+            outuopfolderbtn.Location = new System.Drawing.Point(366, 188);
+            outuopfolderbtn.Margin = new System.Windows.Forms.Padding(4, 3, 4, 3);
+            outuopfolderbtn.Name = "outuopfolderbtn";
+            outuopfolderbtn.Size = new System.Drawing.Size(31, 23);
+            outuopfolderbtn.TabIndex = 10;
+            outuopfolderbtn.Text = "...";
+            outuopfolderbtn.UseVisualStyleBackColor = true;
+            outuopfolderbtn.Click += OutputUopFolderSelect;
             // 
             // inuopbtn
             // 
-            inuopbtn.Location = new System.Drawing.Point(366, 365);
+            inuopbtn.Location = new System.Drawing.Point(367, 326);
             inuopbtn.Margin = new System.Windows.Forms.Padding(4, 3, 4, 3);
             inuopbtn.Name = "inuopbtn";
             inuopbtn.Size = new System.Drawing.Size(31, 23);
-            inuopbtn.TabIndex = 39;
+            inuopbtn.TabIndex = 14;
             inuopbtn.Text = "...";
             inuopbtn.UseVisualStyleBackColor = true;
             inuopbtn.Click += InputUopSelect;
@@ -273,18 +324,18 @@ namespace UoFiddler.Plugin.UopPacker.UserControls
             // uopMapIndex
             // 
             uopMapIndex.BackColor = System.Drawing.Color.White;
-            uopMapIndex.Location = new System.Drawing.Point(118, 335);
+            uopMapIndex.Location = new System.Drawing.Point(118, 297);
             uopMapIndex.Margin = new System.Windows.Forms.Padding(4, 3, 4, 3);
             uopMapIndex.Maximum = new decimal(new int[] { 5, 0, 0, 0 });
             uopMapIndex.Name = "uopMapIndex";
             uopMapIndex.ReadOnly = true;
             uopMapIndex.Size = new System.Drawing.Size(42, 23);
-            uopMapIndex.TabIndex = 38;
+            uopMapIndex.TabIndex = 17;
             // 
             // label6
             // 
             label6.AutoSize = true;
-            label6.Location = new System.Drawing.Point(35, 337);
+            label6.Location = new System.Drawing.Point(54, 299);
             label6.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
             label6.Name = "label6";
             label6.Size = new System.Drawing.Size(56, 15);
@@ -294,7 +345,7 @@ namespace UoFiddler.Plugin.UopPacker.UserControls
             // label8
             // 
             label8.AutoSize = true;
-            label8.Location = new System.Drawing.Point(35, 302);
+            label8.Location = new System.Drawing.Point(49, 271);
             label8.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
             label8.Name = "label8";
             label8.Size = new System.Drawing.Size(61, 15);
@@ -304,27 +355,27 @@ namespace UoFiddler.Plugin.UopPacker.UserControls
             // uoptype
             // 
             uoptype.BackColor = System.Drawing.Color.White;
+            uoptype.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
             uoptype.FormattingEnabled = true;
-            uoptype.Location = new System.Drawing.Point(118, 299);
+            uoptype.Location = new System.Drawing.Point(118, 268);
             uoptype.Margin = new System.Windows.Forms.Padding(4, 3, 4, 3);
             uoptype.Name = "uoptype";
             uoptype.Size = new System.Drawing.Size(241, 23);
-            uoptype.TabIndex = 35;
-            uoptype.Text = "File Type";
+            uoptype.TabIndex = 12;
             // 
             // inuop
             // 
             inuop.BackColor = System.Drawing.Color.White;
-            inuop.Location = new System.Drawing.Point(118, 365);
+            inuop.Location = new System.Drawing.Point(118, 326);
             inuop.Margin = new System.Windows.Forms.Padding(4, 3, 4, 3);
             inuop.Name = "inuop";
             inuop.Size = new System.Drawing.Size(241, 23);
-            inuop.TabIndex = 33;
+            inuop.TabIndex = 13;
             // 
             // label9
             // 
             label9.AutoSize = true;
-            label9.Location = new System.Drawing.Point(35, 368);
+            label9.Location = new System.Drawing.Point(48, 329);
             label9.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
             label9.Name = "label9";
             label9.Size = new System.Drawing.Size(62, 15);
@@ -333,79 +384,59 @@ namespace UoFiddler.Plugin.UopPacker.UserControls
             // 
             // uoptomul
             // 
-            uoptomul.Location = new System.Drawing.Point(405, 238);
+            uoptomul.Location = new System.Drawing.Point(406, 268);
             uoptomul.Margin = new System.Windows.Forms.Padding(4, 3, 4, 3);
             uoptomul.Name = "uoptomul";
-            uoptomul.Size = new System.Drawing.Size(102, 150);
-            uoptomul.TabIndex = 31;
+            uoptomul.Size = new System.Drawing.Size(102, 110);
+            uoptomul.TabIndex = 18;
             uoptomul.Text = "Convert";
             uoptomul.UseVisualStyleBackColor = true;
             uoptomul.Click += ToMul;
             // 
-            // outidxbtn
+            // outfolderbtn
             // 
-            outidxbtn.Location = new System.Drawing.Point(366, 268);
-            outidxbtn.Margin = new System.Windows.Forms.Padding(4, 3, 4, 3);
-            outidxbtn.Name = "outidxbtn";
-            outidxbtn.Size = new System.Drawing.Size(31, 23);
-            outidxbtn.TabIndex = 30;
-            outidxbtn.Text = "...";
-            outidxbtn.UseVisualStyleBackColor = true;
-            outidxbtn.Click += OutputIdxSelect;
+            outfolderbtn.Location = new System.Drawing.Point(367, 355);
+            outfolderbtn.Margin = new System.Windows.Forms.Padding(4, 3, 4, 3);
+            outfolderbtn.Name = "outfolderbtn";
+            outfolderbtn.Size = new System.Drawing.Size(31, 23);
+            outfolderbtn.TabIndex = 16;
+            outfolderbtn.Text = "...";
+            outfolderbtn.UseVisualStyleBackColor = true;
+            outfolderbtn.Click += OutFolderSelect;
             // 
-            // outmulbtn
+            // outputFilesLabel
             // 
-            outmulbtn.Location = new System.Drawing.Point(366, 238);
-            outmulbtn.Margin = new System.Windows.Forms.Padding(4, 3, 4, 3);
-            outmulbtn.Name = "outmulbtn";
-            outmulbtn.Size = new System.Drawing.Size(31, 23);
-            outmulbtn.TabIndex = 29;
-            outmulbtn.Text = "...";
-            outmulbtn.UseVisualStyleBackColor = true;
-            outmulbtn.Click += OutMulSelect;
+            outputFilesLabel.AutoSize = true;
+            outputFilesLabel.ForeColor = System.Drawing.SystemColors.GrayText;
+            outputFilesLabel.Location = new System.Drawing.Point(118, 357);
+            outputFilesLabel.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
+            outputFilesLabel.Name = "outputFilesLabel";
+            outputFilesLabel.Size = new System.Drawing.Size(0, 15);
+            outputFilesLabel.TabIndex = 44;
             // 
-            // outidx
+            // outfolder
             // 
-            outidx.BackColor = System.Drawing.Color.White;
-            outidx.Location = new System.Drawing.Point(118, 268);
-            outidx.Margin = new System.Windows.Forms.Padding(4, 3, 4, 3);
-            outidx.Name = "outidx";
-            outidx.Size = new System.Drawing.Size(241, 23);
-            outidx.TabIndex = 28;
-            // 
-            // label10
-            // 
-            label10.AutoSize = true;
-            label10.Location = new System.Drawing.Point(35, 271);
-            label10.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
-            label10.Name = "label10";
-            label10.Size = new System.Drawing.Size(66, 15);
-            label10.TabIndex = 27;
-            label10.Text = "Output IDX";
-            // 
-            // outmul
-            // 
-            outmul.BackColor = System.Drawing.Color.White;
-            outmul.Location = new System.Drawing.Point(118, 238);
-            outmul.Margin = new System.Windows.Forms.Padding(4, 3, 4, 3);
-            outmul.Name = "outmul";
-            outmul.Size = new System.Drawing.Size(241, 23);
-            outmul.TabIndex = 26;
+            outfolder.BackColor = System.Drawing.Color.White;
+            outfolder.Location = new System.Drawing.Point(118, 355);
+            outfolder.Margin = new System.Windows.Forms.Padding(4, 3, 4, 3);
+            outfolder.Name = "outfolder";
+            outfolder.Size = new System.Drawing.Size(241, 23);
+            outfolder.TabIndex = 15;
             // 
             // label11
             // 
             label11.AutoSize = true;
-            label11.Location = new System.Drawing.Point(35, 241);
+            label11.Location = new System.Drawing.Point(31, 358);
             label11.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
             label11.Name = "label11";
-            label11.Size = new System.Drawing.Size(73, 15);
+            label11.Size = new System.Drawing.Size(79, 15);
             label11.TabIndex = 25;
-            label11.Text = "Output MUL";
+            label11.Text = "Output folder";
             // 
             // label12
             // 
             label12.AutoSize = true;
-            label12.Location = new System.Drawing.Point(7, 203);
+            label12.Location = new System.Drawing.Point(7, 233);
             label12.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
             label12.Name = "label12";
             label12.Size = new System.Drawing.Size(147, 15);
@@ -421,7 +452,7 @@ namespace UoFiddler.Plugin.UopPacker.UserControls
             OperationTypeTabControl.Margin = new System.Windows.Forms.Padding(4, 3, 4, 3);
             OperationTypeTabControl.Name = "OperationTypeTabControl";
             OperationTypeTabControl.SelectedIndex = 0;
-            OperationTypeTabControl.Size = new System.Drawing.Size(645, 470);
+            OperationTypeTabControl.Size = new System.Drawing.Size(640, 422);
             OperationTypeTabControl.TabIndex = 43;
             // 
             // ExtractAllFilesTabPage
@@ -430,6 +461,11 @@ namespace UoFiddler.Plugin.UopPacker.UserControls
             ExtractAllFilesTabPage.Controls.Add(ExtractionStatusStrip);
             ExtractAllFilesTabPage.Controls.Add(pack);
             ExtractAllFilesTabPage.Controls.Add(extract);
+            ExtractAllFilesTabPage.Controls.Add(packAllGumpCompressionLabel);
+            ExtractAllFilesTabPage.Controls.Add(packAllGumpCompressionBox);
+            ExtractAllFilesTabPage.Controls.Add(packAllHousingBinLabel);
+            ExtractAllFilesTabPage.Controls.Add(packAllHousingBin);
+            ExtractAllFilesTabPage.Controls.Add(packAllHousingBinBtn);
             ExtractAllFilesTabPage.Controls.Add(label13);
             ExtractAllFilesTabPage.Controls.Add(inputfolder);
             ExtractAllFilesTabPage.Controls.Add(SelectFolderButton);
@@ -437,18 +473,18 @@ namespace UoFiddler.Plugin.UopPacker.UserControls
             ExtractAllFilesTabPage.Margin = new System.Windows.Forms.Padding(4, 3, 4, 3);
             ExtractAllFilesTabPage.Name = "ExtractAllFilesTabPage";
             ExtractAllFilesTabPage.Padding = new System.Windows.Forms.Padding(4, 3, 4, 3);
-            ExtractAllFilesTabPage.Size = new System.Drawing.Size(637, 442);
+            ExtractAllFilesTabPage.Size = new System.Drawing.Size(632, 394);
             ExtractAllFilesTabPage.TabIndex = 1;
             ExtractAllFilesTabPage.Text = "Every file";
             ExtractAllFilesTabPage.UseVisualStyleBackColor = true;
             // 
             // StartFolderButton
             // 
-            StartFolderButton.Location = new System.Drawing.Point(10, 96);
+            StartFolderButton.Location = new System.Drawing.Point(56, 154);
             StartFolderButton.Margin = new System.Windows.Forms.Padding(4, 3, 4, 3);
             StartFolderButton.Name = "StartFolderButton";
-            StartFolderButton.Size = new System.Drawing.Size(326, 27);
-            StartFolderButton.TabIndex = 12;
+            StartFolderButton.Size = new System.Drawing.Size(279, 27);
+            StartFolderButton.TabIndex = 13;
             StartFolderButton.Text = "Start";
             StartFolderButton.UseVisualStyleBackColor = true;
             StartFolderButton.Click += StartFolderButtonClick;
@@ -456,10 +492,10 @@ namespace UoFiddler.Plugin.UopPacker.UserControls
             // ExtractionStatusStrip
             // 
             ExtractionStatusStrip.Items.AddRange(new System.Windows.Forms.ToolStripItem[] { statustext, toolStripStatusLabel2 });
-            ExtractionStatusStrip.Location = new System.Drawing.Point(4, 417);
+            ExtractionStatusStrip.Location = new System.Drawing.Point(4, 369);
             ExtractionStatusStrip.Name = "ExtractionStatusStrip";
             ExtractionStatusStrip.Padding = new System.Windows.Forms.Padding(1, 0, 16, 0);
-            ExtractionStatusStrip.Size = new System.Drawing.Size(629, 22);
+            ExtractionStatusStrip.Size = new System.Drawing.Size(624, 22);
             ExtractionStatusStrip.TabIndex = 11;
             ExtractionStatusStrip.Text = "statusStrip2";
             // 
@@ -467,7 +503,7 @@ namespace UoFiddler.Plugin.UopPacker.UserControls
             // 
             statustext.ForeColor = System.Drawing.Color.DarkRed;
             statustext.Name = "statustext";
-            statustext.Size = new System.Drawing.Size(330, 17);
+            statustext.Size = new System.Drawing.Size(325, 17);
             statustext.Spring = true;
             statustext.Text = "Status";
             statustext.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -502,6 +538,60 @@ namespace UoFiddler.Plugin.UopPacker.UserControls
             extract.Text = "Extract UOP to MUL";
             extract.UseVisualStyleBackColor = true;
             // 
+            // packAllGumpCompressionLabel
+            // 
+            packAllGumpCompressionLabel.AutoSize = true;
+            packAllGumpCompressionLabel.Location = new System.Drawing.Point(7, 99);
+            packAllGumpCompressionLabel.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
+            packAllGumpCompressionLabel.Name = "packAllGumpCompressionLabel";
+            packAllGumpCompressionLabel.Size = new System.Drawing.Size(114, 15);
+            packAllGumpCompressionLabel.TabIndex = 11;
+            packAllGumpCompressionLabel.Text = "Gump compression:";
+            // 
+            // packAllGumpCompressionBox
+            // 
+            packAllGumpCompressionBox.BackColor = System.Drawing.Color.White;
+            packAllGumpCompressionBox.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            packAllGumpCompressionBox.Items.AddRange(new object[] { "None", "Mythic" });
+            packAllGumpCompressionBox.Location = new System.Drawing.Point(129, 96);
+            packAllGumpCompressionBox.Margin = new System.Windows.Forms.Padding(4, 3, 4, 3);
+            packAllGumpCompressionBox.Name = "packAllGumpCompressionBox";
+            packAllGumpCompressionBox.Size = new System.Drawing.Size(206, 23);
+            packAllGumpCompressionBox.TabIndex = 12;
+            compressionTip.SetToolTip(packAllGumpCompressionBox, "Compression for gumpartLegacyMUL.uop only.\r\nMultiCollection.uop is always Zlib; art/sound/maps are stored uncompressed.");
+            // 
+            // packAllHousingBinLabel
+            // 
+            packAllHousingBinLabel.AutoSize = true;
+            packAllHousingBinLabel.Location = new System.Drawing.Point(8, 128);
+            packAllHousingBinLabel.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
+            packAllHousingBinLabel.Name = "packAllHousingBinLabel";
+            packAllHousingBinLabel.Size = new System.Drawing.Size(70, 15);
+            packAllHousingBinLabel.TabIndex = 14;
+            packAllHousingBinLabel.Text = "housing.bin";
+            // 
+            // packAllHousingBin
+            // 
+            packAllHousingBin.BackColor = System.Drawing.Color.White;
+            packAllHousingBin.Location = new System.Drawing.Point(86, 125);
+            packAllHousingBin.Margin = new System.Windows.Forms.Padding(4, 3, 4, 3);
+            packAllHousingBin.Name = "packAllHousingBin";
+            packAllHousingBin.PlaceholderText = "optional, defaults to folder/housing.bin";
+            packAllHousingBin.Size = new System.Drawing.Size(210, 23);
+            packAllHousingBin.TabIndex = 15;
+            compressionTip.SetToolTip(packAllHousingBin, "Path to housing.bin used when packing MultiCollection.uop.\r\nLeave empty to use 'housing.bin' inside the folder above.");
+            // 
+            // packAllHousingBinBtn
+            // 
+            packAllHousingBinBtn.Location = new System.Drawing.Point(304, 125);
+            packAllHousingBinBtn.Margin = new System.Windows.Forms.Padding(4, 3, 4, 3);
+            packAllHousingBinBtn.Name = "packAllHousingBinBtn";
+            packAllHousingBinBtn.Size = new System.Drawing.Size(31, 23);
+            packAllHousingBinBtn.TabIndex = 16;
+            packAllHousingBinBtn.Text = "...";
+            packAllHousingBinBtn.UseVisualStyleBackColor = true;
+            packAllHousingBinBtn.Click += PackAllHousingBinSelect;
+            // 
             // label13
             // 
             label13.AutoSize = true;
@@ -535,9 +625,13 @@ namespace UoFiddler.Plugin.UopPacker.UserControls
             // ExtractSingleFileTabPage
             // 
             ExtractSingleFileTabPage.Controls.Add(compressionBox);
+            ExtractSingleFileTabPage.Controls.Add(compressionLabel);
             ExtractSingleFileTabPage.Controls.Add(label1);
             ExtractSingleFileTabPage.Controls.Add(label2);
             ExtractSingleFileTabPage.Controls.Add(inmul);
+            ExtractSingleFileTabPage.Controls.Add(inhousingbin);
+            ExtractSingleFileTabPage.Controls.Add(inhousingbinbtn);
+            ExtractSingleFileTabPage.Controls.Add(labelHousingBin);
             ExtractSingleFileTabPage.Controls.Add(inuopbtn);
             ExtractSingleFileTabPage.Controls.Add(label3);
             ExtractSingleFileTabPage.Controls.Add(uopMapIndex);
@@ -551,25 +645,24 @@ namespace UoFiddler.Plugin.UopPacker.UserControls
             ExtractSingleFileTabPage.Controls.Add(inuop);
             ExtractSingleFileTabPage.Controls.Add(label7);
             ExtractSingleFileTabPage.Controls.Add(label9);
-            ExtractSingleFileTabPage.Controls.Add(outuop);
+            ExtractSingleFileTabPage.Controls.Add(outuopfolder);
+            ExtractSingleFileTabPage.Controls.Add(outputUopFileLabel);
             ExtractSingleFileTabPage.Controls.Add(uoptomul);
             ExtractSingleFileTabPage.Controls.Add(multype);
-            ExtractSingleFileTabPage.Controls.Add(outidxbtn);
             ExtractSingleFileTabPage.Controls.Add(label4);
-            ExtractSingleFileTabPage.Controls.Add(outmulbtn);
+            ExtractSingleFileTabPage.Controls.Add(outfolderbtn);
             ExtractSingleFileTabPage.Controls.Add(label5);
-            ExtractSingleFileTabPage.Controls.Add(outidx);
             ExtractSingleFileTabPage.Controls.Add(mulMapIndex);
-            ExtractSingleFileTabPage.Controls.Add(label10);
-            ExtractSingleFileTabPage.Controls.Add(outuopbtn);
-            ExtractSingleFileTabPage.Controls.Add(outmul);
+            ExtractSingleFileTabPage.Controls.Add(outuopfolderbtn);
+            ExtractSingleFileTabPage.Controls.Add(outfolder);
             ExtractSingleFileTabPage.Controls.Add(label12);
             ExtractSingleFileTabPage.Controls.Add(label11);
+            ExtractSingleFileTabPage.Controls.Add(outputFilesLabel);
             ExtractSingleFileTabPage.Location = new System.Drawing.Point(4, 24);
             ExtractSingleFileTabPage.Margin = new System.Windows.Forms.Padding(4, 3, 4, 3);
             ExtractSingleFileTabPage.Name = "ExtractSingleFileTabPage";
             ExtractSingleFileTabPage.Padding = new System.Windows.Forms.Padding(4, 3, 4, 3);
-            ExtractSingleFileTabPage.Size = new System.Drawing.Size(637, 442);
+            ExtractSingleFileTabPage.Size = new System.Drawing.Size(632, 394);
             ExtractSingleFileTabPage.TabIndex = 0;
             ExtractSingleFileTabPage.Text = "One file";
             ExtractSingleFileTabPage.UseVisualStyleBackColor = true;
@@ -577,23 +670,42 @@ namespace UoFiddler.Plugin.UopPacker.UserControls
             // compressionBox
             // 
             compressionBox.BackColor = System.Drawing.Color.White;
+            compressionBox.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
             compressionBox.Items.AddRange(new object[] { "None", "Zlib", "Mythic" });
-            compressionBox.Location = new System.Drawing.Point(168, 134);
+            compressionBox.Location = new System.Drawing.Point(168, 158);
             compressionBox.Margin = new System.Windows.Forms.Padding(4, 3, 4, 3);
             compressionBox.Name = "compressionBox";
             compressionBox.Size = new System.Drawing.Size(191, 23);
-            compressionBox.TabIndex = 40;
-            compressionBox.Text = "None";
+            compressionBox.TabIndex = 8;
+            compressionTip.SetToolTip(compressionBox, resources.GetString("compressionBox.ToolTip"));
+            // 
+            // compressionLabel
+            // 
+            compressionLabel.AutoSize = true;
+            compressionLabel.ForeColor = System.Drawing.SystemColors.GrayText;
+            compressionLabel.Location = new System.Drawing.Point(365, 161);
+            compressionLabel.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
+            compressionLabel.Name = "compressionLabel";
+            compressionLabel.Size = new System.Drawing.Size(20, 15);
+            compressionLabel.TabIndex = 46;
+            compressionLabel.Text = "(?)";
+            compressionTip.SetToolTip(compressionLabel, resources.GetString("compressionLabel.ToolTip"));
+            // 
+            // compressionTip
+            // 
+            compressionTip.AutoPopDelay = 20000;
+            compressionTip.InitialDelay = 400;
+            compressionTip.ReshowDelay = 200;
             // 
             // MainStatusStrip
             // 
             MainStatusStrip.Enabled = false;
             MainStatusStrip.Items.AddRange(new System.Windows.Forms.ToolStripItem[] { toolStripStatusLabel1, guilabel, VersionLabel });
-            MainStatusStrip.Location = new System.Drawing.Point(0, 8);
+            MainStatusStrip.Location = new System.Drawing.Point(0, 5);
             MainStatusStrip.Name = "MainStatusStrip";
             MainStatusStrip.Padding = new System.Windows.Forms.Padding(1, 0, 16, 0);
             MainStatusStrip.RenderMode = System.Windows.Forms.ToolStripRenderMode.Professional;
-            MainStatusStrip.Size = new System.Drawing.Size(645, 22);
+            MainStatusStrip.Size = new System.Drawing.Size(640, 22);
             MainStatusStrip.Stretch = false;
             MainStatusStrip.TabIndex = 44;
             MainStatusStrip.Text = "statusStrip1";
@@ -631,8 +743,8 @@ namespace UoFiddler.Plugin.UopPacker.UserControls
             // splitContainer.Panel2
             // 
             splitContainer.Panel2.Controls.Add(MainStatusStrip);
-            splitContainer.Size = new System.Drawing.Size(645, 505);
-            splitContainer.SplitterDistance = 470;
+            splitContainer.Size = new System.Drawing.Size(640, 454);
+            splitContainer.SplitterDistance = 422;
             splitContainer.SplitterWidth = 5;
             splitContainer.TabIndex = 40;
             // 
@@ -646,7 +758,7 @@ namespace UoFiddler.Plugin.UopPacker.UserControls
             DoubleBuffered = true;
             Margin = new System.Windows.Forms.Padding(4, 3, 4, 3);
             Name = "UopPackerControl";
-            Size = new System.Drawing.Size(645, 505);
+            Size = new System.Drawing.Size(640, 454);
             ((System.ComponentModel.ISupportInitialize)mulMapIndex).EndInit();
             ((System.ComponentModel.ISupportInitialize)uopMapIndex).EndInit();
             OperationTypeTabControl.ResumeLayout(false);
@@ -678,7 +790,6 @@ namespace UoFiddler.Plugin.UopPacker.UserControls
         private System.Windows.Forms.TextBox inuop;
         private System.Windows.Forms.Button inuopbtn;
         private System.Windows.Forms.Label label1;
-        private System.Windows.Forms.Label label10;
         private System.Windows.Forms.Label label11;
         private System.Windows.Forms.Label label12;
         private System.Windows.Forms.Label label13;
@@ -693,12 +804,11 @@ namespace UoFiddler.Plugin.UopPacker.UserControls
         private System.Windows.Forms.NumericUpDown mulMapIndex;
         private System.Windows.Forms.Button multouop;
         private System.Windows.Forms.ComboBox multype;
-        private System.Windows.Forms.TextBox outidx;
-        private System.Windows.Forms.Button outidxbtn;
-        private System.Windows.Forms.TextBox outmul;
-        private System.Windows.Forms.Button outmulbtn;
-        private System.Windows.Forms.TextBox outuop;
-        private System.Windows.Forms.Button outuopbtn;
+        private System.Windows.Forms.TextBox outfolder;
+        private System.Windows.Forms.Button outfolderbtn;
+        private System.Windows.Forms.TextBox outuopfolder;
+        private System.Windows.Forms.Label outputUopFileLabel;
+        private System.Windows.Forms.Button outuopfolderbtn;
         private System.Windows.Forms.RadioButton pack;
         private System.Windows.Forms.OpenFileDialog FileDialog;
         private System.Windows.Forms.FolderBrowserDialog FolderDialog;
@@ -718,5 +828,16 @@ namespace UoFiddler.Plugin.UopPacker.UserControls
         private System.Windows.Forms.ComboBox uoptype;
         private System.Windows.Forms.ToolStripStatusLabel VersionLabel;
         private System.Windows.Forms.ComboBox compressionBox;
+        private System.Windows.Forms.Label compressionLabel;
+        private System.Windows.Forms.ComboBox packAllGumpCompressionBox;
+        private System.Windows.Forms.Label packAllGumpCompressionLabel;
+        private System.Windows.Forms.TextBox packAllHousingBin;
+        private System.Windows.Forms.Button packAllHousingBinBtn;
+        private System.Windows.Forms.Label packAllHousingBinLabel;
+        private System.Windows.Forms.ToolTip compressionTip;
+        private System.Windows.Forms.TextBox inhousingbin;
+        private System.Windows.Forms.Button inhousingbinbtn;
+        private System.Windows.Forms.Label labelHousingBin;
+        private System.Windows.Forms.Label outputFilesLabel;
     }
 }

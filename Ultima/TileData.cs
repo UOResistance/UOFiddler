@@ -249,6 +249,13 @@ namespace Ultima
                 return;
             }
 
+            // CSV may have been exported from an older client version that did not include extended HSA flags.
+            // Any missing flags default to 0, which is already set above.
+            if (i >= split.Length)
+            {
+                return;
+            }
+
             temp = Convert.ToByte(split[i++]);
             if (temp != 0)
             {
@@ -820,6 +827,13 @@ namespace Ultima
                 return;
             }
 
+            // CSV may have been exported from an older client version that did not include extended HSA flags.
+            // Any missing flags default to 0, which is already set above.
+            if (i >= split.Length)
+            {
+                return;
+            }
+
             temp = Convert.ToByte(split[i++]);
             if (temp != 0)
             {
@@ -1321,7 +1335,7 @@ namespace Ultima
                 long currentPos = 0;
                 try
                 {
-                    fs.Read(buffer, 0, buffer.Length);
+                    fs.ReadExactly(buffer, 0, buffer.Length);
                     for (int i = 0; i < 0x4000; i += 32)
                     {
                         var ptrHeader = new IntPtr(gc.AddrOfPinnedObject() + currentPos);
@@ -1590,21 +1604,25 @@ namespace Ultima
                         continue;
                     }
 
+                    string[] split = line.Split(';');
+                    if (split.Length < 44)
+                    {
+                        continue;
+                    }
+
+                    int id = TileDataHelpers.ConvertStringToInt(split[0]);
+                    if (id < 0 || id >= ItemTable.Length)
+                    {
+                        continue;
+                    }
+
                     try
                     {
-                        string[] split = line.Split(';');
-                        if (split.Length < 44)
-                        {
-                            continue;
-                        }
-
-                        int id = TileDataHelpers.ConvertStringToInt(split[0]);
                         ItemTable[id].ReadData(split);
                     }
                     catch
                     {
-                        // TODO: ignored?
-                        // ignored
+                        // Malformed CSV field value — skip
                     }
                 }
             }
@@ -1633,21 +1651,25 @@ namespace Ultima
                         continue;
                     }
 
+                    string[] split = line.Split(';');
+                    if (split.Length < 35)
+                    {
+                        continue;
+                    }
+
+                    int id = TileDataHelpers.ConvertStringToInt(split[0]);
+                    if (id < 0 || id >= LandTable.Length)
+                    {
+                        continue;
+                    }
+
                     try
                     {
-                        string[] split = line.Split(';');
-                        if (split.Length < 35)
-                        {
-                            continue;
-                        }
-
-                        int id = TileDataHelpers.ConvertStringToInt(split[0]);
                         LandTable[id].ReadData(split);
                     }
                     catch
                     {
-                        // TODO: ignored?
-                        // ignored
+                        // Malformed CSV field value — skip
                     }
                 }
             }

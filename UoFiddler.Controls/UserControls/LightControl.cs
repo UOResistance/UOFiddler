@@ -14,7 +14,9 @@ using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
 using System.Windows.Forms;
+using Ultima;
 using UoFiddler.Controls.Classes;
+using UoFiddler.Controls.Forms;
 using UoFiddler.Controls.Helpers;
 
 namespace UoFiddler.Controls.UserControls
@@ -51,6 +53,8 @@ namespace UoFiddler.Controls.UserControls
             {
                 return;
             }
+
+            pictureBoxPreview.BackColor = Options.DarkMode ? Color.LightGray : Color.White;
 
             Cursor.Current = Cursors.WaitCursor;
             Options.LoadedUltimaClass["Light"] = true;
@@ -331,10 +335,9 @@ namespace UoFiddler.Controls.UserControls
 
         private void OnClickSave(object sender, EventArgs e)
         {
-            Ultima.Light.Save(Options.OutputPath);
-            MessageBox.Show($"Saved to {Options.OutputPath}", "Save", MessageBoxButtons.OK, MessageBoxIcon.Information,
-                MessageBoxDefaultButton.Button1);
+            Light.Save(Options.OutputPath);
             Options.ChangedUltimaClass["Light"] = false;
+            FileSavedDialog.Show(FindForm(), Options.OutputPath, "Files saved successfully.");
         }
 
         private void OnClickExportBmp(object sender, EventArgs e)
@@ -347,9 +350,8 @@ namespace UoFiddler.Controls.UserControls
             string path = Options.OutputPath;
             int i = (int)treeViewLights.SelectedNode.Tag;
             string fileName = Path.Combine(path, $"Light {i}.bmp");
-            Ultima.Light.GetLight(i).Save(fileName, ImageFormat.Bmp);
-            MessageBox.Show($"Light saved to {fileName}", "Saved", MessageBoxButtons.OK, MessageBoxIcon.Information,
-                MessageBoxDefaultButton.Button1);
+            Light.GetLight(i).Save(fileName, ImageFormat.Bmp);
+            FileSavedDialog.Show(FindForm(), fileName, "Light saved successfully.");
         }
 
         private void OnClickExportTiff(object sender, EventArgs e)
@@ -363,8 +365,7 @@ namespace UoFiddler.Controls.UserControls
             int i = (int)treeViewLights.SelectedNode.Tag;
             string fileName = Path.Combine(path, $"Light {i}.tiff");
             Ultima.Light.GetLight(i).Save(fileName, ImageFormat.Tiff);
-            MessageBox.Show($"Light saved to {fileName}", "Saved", MessageBoxButtons.OK, MessageBoxIcon.Information,
-                MessageBoxDefaultButton.Button1);
+            FileSavedDialog.Show(FindForm(), fileName, "Light saved successfully.");
         }
 
         private void OnClickExportJpg(object sender, EventArgs e)
@@ -378,8 +379,7 @@ namespace UoFiddler.Controls.UserControls
             int i = (int)treeViewLights.SelectedNode.Tag;
             string fileName = Path.Combine(path, $"Light {i}.jpg");
             Ultima.Light.GetLight(i).Save(fileName, ImageFormat.Jpeg);
-            MessageBox.Show($"Light saved to {fileName}", "Saved", MessageBoxButtons.OK, MessageBoxIcon.Information,
-                MessageBoxDefaultButton.Button1);
+            FileSavedDialog.Show(FindForm(), fileName, "Light saved successfully.");
         }
 
         private void IgPreviewClicked(object sender, EventArgs e)
