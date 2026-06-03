@@ -98,6 +98,9 @@
             AnimationEditPage = new System.Windows.Forms.TabPage();
             AnimationTableLayoutPanel = new System.Windows.Forms.TableLayoutPanel();
             AnimationEditToolStrip = new System.Windows.Forms.ToolStrip();
+            ZoomLabel = new System.Windows.Forms.ToolStripLabel();
+            ZoomComboBox = new System.Windows.Forms.ToolStripComboBox();
+            zoomToolStripSeparator = new System.Windows.Forms.ToolStripSeparator();
             toolStripSeparator7 = new System.Windows.Forms.ToolStripSeparator();
             DrawFullRectangleToolStripButton = new System.Windows.Forms.ToolStripButton();
             toolStripSeparator5 = new System.Windows.Forms.ToolStripSeparator();
@@ -107,6 +110,18 @@
             toolStripSeparator10 = new System.Windows.Forms.ToolStripSeparator();
             AnimationPictureBox = new System.Windows.Forms.PictureBox();
             EditSidePanel = new System.Windows.Forms.Panel();
+            SecondAnimGroupBox = new System.Windows.Forms.GroupBox();
+            SecondAnimCheckBox = new System.Windows.Forms.CheckBox();
+            SecondAnimFileComboBox = new System.Windows.Forms.ComboBox();
+            SecondAnimIdLabel = new System.Windows.Forms.Label();
+            SecondAnimIdNumericUpDown = new System.Windows.Forms.NumericUpDown();
+            SecondAnimColorComboBox = new System.Windows.Forms.ComboBox();
+            SecondAnimOpacityLabel = new System.Windows.Forms.Label();
+            SecondAnimOpacityValueLabel = new System.Windows.Forms.Label();
+            SecondAnimOpacityTrackBar = new System.Windows.Forms.TrackBar();
+            SecondAnimInFrontCheckBox = new System.Windows.Forms.CheckBox();
+            SecondAnimBoxCheckBox = new System.Windows.Forms.CheckBox();
+            SecondAnimWarningLabel = new System.Windows.Forms.Label();
             FramesGroupBox = new System.Windows.Forms.GroupBox();
             FramesTrackBar = new System.Windows.Forms.TrackBar();
             SpeedGroupBox = new System.Windows.Forms.GroupBox();
@@ -132,6 +147,8 @@
             SaveCoordinatesLabel1 = new System.Windows.Forms.Label();
             SetCoordinatesButton = new System.Windows.Forms.Button();
             SaveCoordinatesCheckBox = new System.Windows.Forms.CheckBox();
+            GalleryPage = new System.Windows.Forms.TabPage();
+            GalleryTileView = new UoFiddler.Controls.UserControls.TileView.TileViewControl();
             panel1 = new System.Windows.Forms.Panel();
             ProgressBar = new System.Windows.Forms.ProgressBar();
             DirectionTrackBar = new System.Windows.Forms.TrackBar();
@@ -169,6 +186,9 @@
             AnimationEditToolStrip.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)AnimationPictureBox).BeginInit();
             EditSidePanel.SuspendLayout();
+            SecondAnimGroupBox.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)SecondAnimIdNumericUpDown).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)SecondAnimOpacityTrackBar).BeginInit();
             FramesGroupBox.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)FramesTrackBar).BeginInit();
             SpeedGroupBox.SuspendLayout();
@@ -180,6 +200,7 @@
             ((System.ComponentModel.ISupportInitialize)RefXNumericUpDown).BeginInit();
             ((System.ComponentModel.ISupportInitialize)RefYNumericUpDown).BeginInit();
             CoordinatesGroupBox.SuspendLayout();
+            GalleryPage.SuspendLayout();
             panel1.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)DirectionTrackBar).BeginInit();
             StatusStrip.SuspendLayout();
@@ -201,7 +222,7 @@
             // 
             MainSplitContainer.Panel2.Controls.Add(tableLayoutPanel1);
             MainSplitContainer.Panel2.Controls.Add(StatusStrip);
-            MainSplitContainer.Size = new System.Drawing.Size(1080, 651);
+            MainSplitContainer.Size = new System.Drawing.Size(1084, 821);
             MainSplitContainer.SplitterDistance = 232;
             MainSplitContainer.SplitterWidth = 5;
             MainSplitContainer.TabIndex = 0;
@@ -215,7 +236,7 @@
             AnimationListTreeView.Location = new System.Drawing.Point(0, 25);
             AnimationListTreeView.Margin = new System.Windows.Forms.Padding(4, 3, 4, 3);
             AnimationListTreeView.Name = "AnimationListTreeView";
-            AnimationListTreeView.Size = new System.Drawing.Size(232, 626);
+            AnimationListTreeView.Size = new System.Drawing.Size(232, 796);
             AnimationListTreeView.TabIndex = 0;
             AnimationListTreeView.AfterSelect += AfterSelectTreeView;
             // 
@@ -250,7 +271,7 @@
             // asBmpToolStripMenuItem
             // 
             asBmpToolStripMenuItem.Name = "asBmpToolStripMenuItem";
-            asBmpToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
+            asBmpToolStripMenuItem.Size = new System.Drawing.Size(115, 22);
             asBmpToolStripMenuItem.Tag = ".bmp";
             asBmpToolStripMenuItem.Text = "As Bmp";
             asBmpToolStripMenuItem.Click += OnClickExtractImages;
@@ -258,7 +279,7 @@
             // asTiffToolStripMenuItem
             // 
             asTiffToolStripMenuItem.Name = "asTiffToolStripMenuItem";
-            asTiffToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
+            asTiffToolStripMenuItem.Size = new System.Drawing.Size(115, 22);
             asTiffToolStripMenuItem.Tag = ".tiff";
             asTiffToolStripMenuItem.Text = "As Tiff";
             asTiffToolStripMenuItem.Click += OnClickExtractImages;
@@ -266,7 +287,7 @@
             // asJpgToolStripMenuItem
             // 
             asJpgToolStripMenuItem.Name = "asJpgToolStripMenuItem";
-            asJpgToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
+            asJpgToolStripMenuItem.Size = new System.Drawing.Size(115, 22);
             asJpgToolStripMenuItem.Tag = ".jpg";
             asJpgToolStripMenuItem.Text = "As Jpg";
             asJpgToolStripMenuItem.Click += OnClickExtractImages;
@@ -274,7 +295,7 @@
             // asPngToolStripMenuItem
             // 
             asPngToolStripMenuItem.Name = "asPngToolStripMenuItem";
-            asPngToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
+            asPngToolStripMenuItem.Size = new System.Drawing.Size(115, 22);
             asPngToolStripMenuItem.Tag = ".png";
             asPngToolStripMenuItem.Text = "As Png";
             asPngToolStripMenuItem.Click += OnClickExtractImages;
@@ -320,7 +341,7 @@
             // 
             // SelectFileToolStripComboBox
             // 
-            SelectFileToolStripComboBox.Items.AddRange(new object[] { "Choose anim file", "anim", "anim2", "anim3", "anim4", "anim5" });
+            SelectFileToolStripComboBox.Items.AddRange(new object[] { "Choose anim file", "anim", "anim2", "anim3", "anim4", "anim5", "anim6" });
             SelectFileToolStripComboBox.Name = "SelectFileToolStripComboBox";
             SelectFileToolStripComboBox.Size = new System.Drawing.Size(140, 25);
             SelectFileToolStripComboBox.SelectedIndexChanged += OnAnimChanged;
@@ -337,19 +358,20 @@
             tableLayoutPanel1.RowCount = 2;
             tableLayoutPanel1.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
             tableLayoutPanel1.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
-            tableLayoutPanel1.Size = new System.Drawing.Size(843, 629);
+            tableLayoutPanel1.Size = new System.Drawing.Size(847, 799);
             tableLayoutPanel1.TabIndex = 11;
             // 
             // AnimationTabControl
             // 
             AnimationTabControl.Controls.Add(FramePage);
             AnimationTabControl.Controls.Add(AnimationEditPage);
+            AnimationTabControl.Controls.Add(GalleryPage);
             AnimationTabControl.Dock = System.Windows.Forms.DockStyle.Fill;
             AnimationTabControl.Location = new System.Drawing.Point(4, 3);
             AnimationTabControl.Margin = new System.Windows.Forms.Padding(4, 3, 4, 3);
             AnimationTabControl.Name = "AnimationTabControl";
             AnimationTabControl.SelectedIndex = 0;
-            AnimationTabControl.Size = new System.Drawing.Size(835, 593);
+            AnimationTabControl.Size = new System.Drawing.Size(839, 763);
             AnimationTabControl.TabIndex = 7;
             AnimationTabControl.TabStop = false;
             // 
@@ -360,7 +382,7 @@
             FramePage.Margin = new System.Windows.Forms.Padding(4, 3, 4, 3);
             FramePage.Name = "FramePage";
             FramePage.Padding = new System.Windows.Forms.Padding(4, 3, 4, 3);
-            FramePage.Size = new System.Drawing.Size(827, 565);
+            FramePage.Size = new System.Drawing.Size(831, 735);
             FramePage.TabIndex = 0;
             FramePage.Text = "Frame";
             FramePage.UseVisualStyleBackColor = true;
@@ -369,7 +391,7 @@
             // 
             tableLayoutPanel2.ColumnCount = 2;
             tableLayoutPanel2.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            tableLayoutPanel2.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 160F));
+            tableLayoutPanel2.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 170F));
             tableLayoutPanel2.Controls.Add(PalettePictureBox, 0, 0);
             tableLayoutPanel2.Controls.Add(FramesListView, 0, 1);
             tableLayoutPanel2.Controls.Add(panel2, 1, 1);
@@ -379,7 +401,7 @@
             tableLayoutPanel2.RowCount = 2;
             tableLayoutPanel2.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 28F));
             tableLayoutPanel2.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            tableLayoutPanel2.Size = new System.Drawing.Size(819, 559);
+            tableLayoutPanel2.Size = new System.Drawing.Size(823, 729);
             tableLayoutPanel2.TabIndex = 27;
             // 
             // PalettePictureBox
@@ -469,7 +491,7 @@
             FramesListView.MultiSelect = false;
             FramesListView.Name = "FramesListView";
             FramesListView.OwnerDraw = true;
-            FramesListView.Size = new System.Drawing.Size(651, 525);
+            FramesListView.Size = new System.Drawing.Size(645, 695);
             FramesListView.TabIndex = 0;
             FramesListView.TileSize = new System.Drawing.Size(81, 110);
             FramesListView.UseCompatibleStateImageBehavior = false;
@@ -555,9 +577,9 @@
             panel2.Controls.Add(groupBox2);
             panel2.Controls.Add(groupBox1);
             panel2.Dock = System.Windows.Forms.DockStyle.Fill;
-            panel2.Location = new System.Drawing.Point(662, 31);
+            panel2.Location = new System.Drawing.Point(656, 31);
             panel2.Name = "panel2";
-            panel2.Size = new System.Drawing.Size(154, 525);
+            panel2.Size = new System.Drawing.Size(164, 695);
             panel2.TabIndex = 26;
             // 
             // groupBox3
@@ -572,7 +594,7 @@
             groupBox3.Dock = System.Windows.Forms.DockStyle.Top;
             groupBox3.Location = new System.Drawing.Point(0, 276);
             groupBox3.Name = "groupBox3";
-            groupBox3.Size = new System.Drawing.Size(154, 144);
+            groupBox3.Size = new System.Drawing.Size(164, 144);
             groupBox3.TabIndex = 12;
             groupBox3.TabStop = false;
             groupBox3.Text = "Color balance";
@@ -664,7 +686,7 @@
             groupBox2.Dock = System.Windows.Forms.DockStyle.Top;
             groupBox2.Location = new System.Drawing.Point(0, 145);
             groupBox2.Name = "groupBox2";
-            groupBox2.Size = new System.Drawing.Size(154, 131);
+            groupBox2.Size = new System.Drawing.Size(164, 131);
             groupBox2.TabIndex = 11;
             groupBox2.TabStop = false;
             groupBox2.Text = "Palette converter";
@@ -766,7 +788,7 @@
             groupBox1.Dock = System.Windows.Forms.DockStyle.Top;
             groupBox1.Location = new System.Drawing.Point(0, 0);
             groupBox1.Name = "groupBox1";
-            groupBox1.Size = new System.Drawing.Size(154, 145);
+            groupBox1.Size = new System.Drawing.Size(164, 145);
             groupBox1.TabIndex = 10;
             groupBox1.TabStop = false;
             groupBox1.Text = "Extra background";
@@ -854,7 +876,7 @@
             AnimationEditPage.Margin = new System.Windows.Forms.Padding(4, 3, 4, 3);
             AnimationEditPage.Name = "AnimationEditPage";
             AnimationEditPage.Padding = new System.Windows.Forms.Padding(4, 3, 4, 3);
-            AnimationEditPage.Size = new System.Drawing.Size(827, 565);
+            AnimationEditPage.Size = new System.Drawing.Size(831, 735);
             AnimationEditPage.TabIndex = 1;
             AnimationEditPage.Text = "Preview/Edit";
             AnimationEditPage.UseVisualStyleBackColor = true;
@@ -875,7 +897,7 @@
             AnimationTableLayoutPanel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
             AnimationTableLayoutPanel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 29F));
             AnimationTableLayoutPanel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 23F));
-            AnimationTableLayoutPanel.Size = new System.Drawing.Size(819, 559);
+            AnimationTableLayoutPanel.Size = new System.Drawing.Size(823, 729);
             AnimationTableLayoutPanel.TabIndex = 21;
             // 
             // AnimationEditToolStrip
@@ -884,13 +906,32 @@
             AnimationEditToolStrip.Dock = System.Windows.Forms.DockStyle.Bottom;
             AnimationEditToolStrip.GripStyle = System.Windows.Forms.ToolStripGripStyle.Hidden;
             AnimationEditToolStrip.ImageScalingSize = new System.Drawing.Size(20, 20);
-            AnimationEditToolStrip.Items.AddRange(new System.Windows.Forms.ToolStripItem[] { toolStripSeparator7, DrawFullRectangleToolStripButton, toolStripSeparator5, DrawEmptyRectangleToolStripButton, toolStripSeparator6, DrawReferencialPointToolStripButton, toolStripSeparator10 });
-            AnimationEditToolStrip.Location = new System.Drawing.Point(0, 532);
+            AnimationEditToolStrip.Items.AddRange(new System.Windows.Forms.ToolStripItem[] { ZoomLabel, ZoomComboBox, zoomToolStripSeparator, toolStripSeparator7, DrawFullRectangleToolStripButton, toolStripSeparator5, DrawEmptyRectangleToolStripButton, toolStripSeparator6, DrawReferencialPointToolStripButton, toolStripSeparator10 });
+            AnimationEditToolStrip.Location = new System.Drawing.Point(0, 702);
             AnimationEditToolStrip.Name = "AnimationEditToolStrip";
             AnimationEditToolStrip.RenderMode = System.Windows.Forms.ToolStripRenderMode.System;
-            AnimationEditToolStrip.Size = new System.Drawing.Size(819, 27);
+            AnimationEditToolStrip.Size = new System.Drawing.Size(823, 27);
             AnimationEditToolStrip.TabIndex = 11;
             AnimationEditToolStrip.Text = "X";
+            // 
+            // ZoomLabel
+            // 
+            ZoomLabel.Name = "ZoomLabel";
+            ZoomLabel.Size = new System.Drawing.Size(42, 24);
+            ZoomLabel.Text = "Zoom:";
+            // 
+            // ZoomComboBox
+            // 
+            ZoomComboBox.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            ZoomComboBox.Items.AddRange(new object[] { "100%", "200%", "300%", "400%", "500%" });
+            ZoomComboBox.Name = "ZoomComboBox";
+            ZoomComboBox.Size = new System.Drawing.Size(75, 27);
+            ZoomComboBox.SelectedIndexChanged += OnZoomChanged;
+            // 
+            // zoomToolStripSeparator
+            // 
+            zoomToolStripSeparator.Name = "zoomToolStripSeparator";
+            zoomToolStripSeparator.Size = new System.Drawing.Size(6, 27);
             // 
             // toolStripSeparator7
             // 
@@ -961,7 +1002,7 @@
             AnimationPictureBox.Location = new System.Drawing.Point(4, 3);
             AnimationPictureBox.Margin = new System.Windows.Forms.Padding(4, 3, 4, 3);
             AnimationPictureBox.Name = "AnimationPictureBox";
-            AnimationPictureBox.Size = new System.Drawing.Size(613, 524);
+            AnimationPictureBox.Size = new System.Drawing.Size(617, 694);
             AnimationPictureBox.TabIndex = 1;
             AnimationPictureBox.TabStop = false;
             AnimationPictureBox.SizeChanged += AnimationPictureBox_OnSizeChanged;
@@ -970,18 +1011,151 @@
             // 
             // EditSidePanel
             // 
+            EditSidePanel.AutoScroll = true;
             EditSidePanel.BackColor = System.Drawing.SystemColors.Control;
+            EditSidePanel.Controls.Add(SecondAnimGroupBox);
             EditSidePanel.Controls.Add(FramesGroupBox);
             EditSidePanel.Controls.Add(SpeedGroupBox);
             EditSidePanel.Controls.Add(LocationCenterGroupBox);
             EditSidePanel.Controls.Add(ReferencialPointGroupBox);
             EditSidePanel.Controls.Add(CoordinatesGroupBox);
             EditSidePanel.Dock = System.Windows.Forms.DockStyle.Fill;
-            EditSidePanel.Location = new System.Drawing.Point(625, 3);
+            EditSidePanel.Location = new System.Drawing.Point(629, 3);
             EditSidePanel.Margin = new System.Windows.Forms.Padding(4, 3, 4, 3);
             EditSidePanel.Name = "EditSidePanel";
-            EditSidePanel.Size = new System.Drawing.Size(190, 524);
+            EditSidePanel.Size = new System.Drawing.Size(190, 694);
             EditSidePanel.TabIndex = 0;
+            // 
+            // SecondAnimGroupBox
+            // 
+            SecondAnimGroupBox.Controls.Add(SecondAnimCheckBox);
+            SecondAnimGroupBox.Controls.Add(SecondAnimFileComboBox);
+            SecondAnimGroupBox.Controls.Add(SecondAnimIdLabel);
+            SecondAnimGroupBox.Controls.Add(SecondAnimIdNumericUpDown);
+            SecondAnimGroupBox.Controls.Add(SecondAnimColorComboBox);
+            SecondAnimGroupBox.Controls.Add(SecondAnimOpacityLabel);
+            SecondAnimGroupBox.Controls.Add(SecondAnimOpacityValueLabel);
+            SecondAnimGroupBox.Controls.Add(SecondAnimOpacityTrackBar);
+            SecondAnimGroupBox.Controls.Add(SecondAnimInFrontCheckBox);
+            SecondAnimGroupBox.Controls.Add(SecondAnimBoxCheckBox);
+            SecondAnimGroupBox.Controls.Add(SecondAnimWarningLabel);
+            SecondAnimGroupBox.Dock = System.Windows.Forms.DockStyle.Top;
+            SecondAnimGroupBox.Location = new System.Drawing.Point(0, 437);
+            SecondAnimGroupBox.Name = "SecondAnimGroupBox";
+            SecondAnimGroupBox.Size = new System.Drawing.Size(190, 240);
+            SecondAnimGroupBox.TabIndex = 26;
+            SecondAnimGroupBox.TabStop = false;
+            SecondAnimGroupBox.Text = "Second Animation Overlay";
+            // 
+            // SecondAnimCheckBox
+            // 
+            SecondAnimCheckBox.AutoSize = true;
+            SecondAnimCheckBox.Location = new System.Drawing.Point(9, 20);
+            SecondAnimCheckBox.Name = "SecondAnimCheckBox";
+            SecondAnimCheckBox.Size = new System.Drawing.Size(96, 19);
+            SecondAnimCheckBox.TabIndex = 0;
+            SecondAnimCheckBox.Text = "Show overlay";
+            SecondAnimCheckBox.UseVisualStyleBackColor = true;
+            SecondAnimCheckBox.CheckedChanged += SecondAnimCheckBox_CheckedChanged;
+            // 
+            // SecondAnimFileComboBox
+            // 
+            SecondAnimFileComboBox.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            SecondAnimFileComboBox.Items.AddRange(new object[] { "anim", "anim2", "anim3", "anim4", "anim5" });
+            SecondAnimFileComboBox.Location = new System.Drawing.Point(9, 43);
+            SecondAnimFileComboBox.Name = "SecondAnimFileComboBox";
+            SecondAnimFileComboBox.Size = new System.Drawing.Size(172, 23);
+            SecondAnimFileComboBox.TabIndex = 1;
+            SecondAnimFileComboBox.SelectedIndexChanged += SecondAnimFileComboBox_SelectedIndexChanged;
+            // 
+            // SecondAnimIdLabel
+            // 
+            SecondAnimIdLabel.AutoSize = true;
+            SecondAnimIdLabel.Location = new System.Drawing.Point(9, 73);
+            SecondAnimIdLabel.Name = "SecondAnimIdLabel";
+            SecondAnimIdLabel.Size = new System.Drawing.Size(18, 15);
+            SecondAnimIdLabel.TabIndex = 2;
+            SecondAnimIdLabel.Text = "ID";
+            // 
+            // SecondAnimIdNumericUpDown
+            // 
+            SecondAnimIdNumericUpDown.Location = new System.Drawing.Point(33, 71);
+            SecondAnimIdNumericUpDown.Maximum = new decimal(new int[] { 2048, 0, 0, 0 });
+            SecondAnimIdNumericUpDown.Name = "SecondAnimIdNumericUpDown";
+            SecondAnimIdNumericUpDown.Size = new System.Drawing.Size(70, 23);
+            SecondAnimIdNumericUpDown.TabIndex = 3;
+            SecondAnimIdNumericUpDown.ValueChanged += SecondAnimIdNumericUpDown_ValueChanged;
+            // 
+            // SecondAnimColorComboBox
+            // 
+            SecondAnimColorComboBox.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            SecondAnimColorComboBox.Items.AddRange(new object[] { "Original", "Green", "Magenta", "Cyan", "Red", "Custom…" });
+            SecondAnimColorComboBox.Location = new System.Drawing.Point(9, 98);
+            SecondAnimColorComboBox.Name = "SecondAnimColorComboBox";
+            SecondAnimColorComboBox.Size = new System.Drawing.Size(172, 23);
+            SecondAnimColorComboBox.TabIndex = 4;
+            SecondAnimColorComboBox.SelectedIndexChanged += SecondAnimColorComboBox_SelectedIndexChanged;
+            // 
+            // SecondAnimOpacityLabel
+            // 
+            SecondAnimOpacityLabel.AutoSize = true;
+            SecondAnimOpacityLabel.Location = new System.Drawing.Point(9, 128);
+            SecondAnimOpacityLabel.Name = "SecondAnimOpacityLabel";
+            SecondAnimOpacityLabel.Size = new System.Drawing.Size(48, 15);
+            SecondAnimOpacityLabel.TabIndex = 5;
+            SecondAnimOpacityLabel.Text = "Opacity";
+            // 
+            // SecondAnimOpacityValueLabel
+            // 
+            SecondAnimOpacityValueLabel.AutoSize = true;
+            SecondAnimOpacityValueLabel.Location = new System.Drawing.Point(150, 128);
+            SecondAnimOpacityValueLabel.Name = "SecondAnimOpacityValueLabel";
+            SecondAnimOpacityValueLabel.Size = new System.Drawing.Size(29, 15);
+            SecondAnimOpacityValueLabel.TabIndex = 6;
+            SecondAnimOpacityValueLabel.Text = "50%";
+            // 
+            // SecondAnimOpacityTrackBar
+            // 
+            SecondAnimOpacityTrackBar.AutoSize = false;
+            SecondAnimOpacityTrackBar.Location = new System.Drawing.Point(6, 146);
+            SecondAnimOpacityTrackBar.Maximum = 100;
+            SecondAnimOpacityTrackBar.Name = "SecondAnimOpacityTrackBar";
+            SecondAnimOpacityTrackBar.Size = new System.Drawing.Size(178, 28);
+            SecondAnimOpacityTrackBar.TabIndex = 7;
+            SecondAnimOpacityTrackBar.TickStyle = System.Windows.Forms.TickStyle.None;
+            SecondAnimOpacityTrackBar.Value = 50;
+            SecondAnimOpacityTrackBar.ValueChanged += SecondAnimOpacityTrackBar_ValueChanged;
+            // 
+            // SecondAnimInFrontCheckBox
+            // 
+            SecondAnimInFrontCheckBox.AutoSize = true;
+            SecondAnimInFrontCheckBox.Location = new System.Drawing.Point(9, 178);
+            SecondAnimInFrontCheckBox.Name = "SecondAnimInFrontCheckBox";
+            SecondAnimInFrontCheckBox.Size = new System.Drawing.Size(63, 19);
+            SecondAnimInFrontCheckBox.TabIndex = 8;
+            SecondAnimInFrontCheckBox.Text = "On top";
+            SecondAnimInFrontCheckBox.UseVisualStyleBackColor = true;
+            SecondAnimInFrontCheckBox.CheckedChanged += SecondAnimInFrontCheckBox_CheckedChanged;
+            // 
+            // SecondAnimBoxCheckBox
+            // 
+            SecondAnimBoxCheckBox.AutoSize = true;
+            SecondAnimBoxCheckBox.Location = new System.Drawing.Point(95, 178);
+            SecondAnimBoxCheckBox.Name = "SecondAnimBoxCheckBox";
+            SecondAnimBoxCheckBox.Size = new System.Drawing.Size(46, 19);
+            SecondAnimBoxCheckBox.TabIndex = 9;
+            SecondAnimBoxCheckBox.Text = "Box";
+            SecondAnimBoxCheckBox.UseVisualStyleBackColor = true;
+            SecondAnimBoxCheckBox.CheckedChanged += SecondAnimBoxCheckBox_CheckedChanged;
+            // 
+            // SecondAnimWarningLabel
+            // 
+            SecondAnimWarningLabel.ForeColor = System.Drawing.Color.Red;
+            SecondAnimWarningLabel.Location = new System.Drawing.Point(9, 201);
+            SecondAnimWarningLabel.Name = "SecondAnimWarningLabel";
+            SecondAnimWarningLabel.Size = new System.Drawing.Size(175, 34);
+            SecondAnimWarningLabel.TabIndex = 10;
+            SecondAnimWarningLabel.Visible = false;
             // 
             // FramesGroupBox
             // 
@@ -1299,20 +1473,49 @@
             SaveCoordinatesCheckBox.UseVisualStyleBackColor = false;
             SaveCoordinatesCheckBox.CheckedChanged += CbSaveCoordinates_CheckedChanged;
             // 
+            // GalleryPage
+            // 
+            GalleryPage.Controls.Add(GalleryTileView);
+            GalleryPage.Location = new System.Drawing.Point(4, 24);
+            GalleryPage.Margin = new System.Windows.Forms.Padding(4, 3, 4, 3);
+            GalleryPage.Name = "GalleryPage";
+            GalleryPage.Padding = new System.Windows.Forms.Padding(4, 3, 4, 3);
+            GalleryPage.Size = new System.Drawing.Size(831, 735);
+            GalleryPage.TabIndex = 2;
+            GalleryPage.Text = "Gallery";
+            GalleryPage.UseVisualStyleBackColor = true;
+            // 
+            // GalleryTileView
+            // 
+            GalleryTileView.AutoScroll = true;
+            GalleryTileView.AutoScrollMinSize = new System.Drawing.Size(0, 120);
+            GalleryTileView.Dock = System.Windows.Forms.DockStyle.Fill;
+            GalleryTileView.Location = new System.Drawing.Point(4, 3);
+            GalleryTileView.Name = "GalleryTileView";
+            GalleryTileView.Size = new System.Drawing.Size(823, 729);
+            GalleryTileView.TabIndex = 0;
+            GalleryTileView.TileBorderColor = System.Drawing.Color.Gray;
+            GalleryTileView.TileFocusColor = System.Drawing.Color.DarkBlue;
+            GalleryTileView.TileMargin = new System.Windows.Forms.Padding(2, 2, 0, 0);
+            GalleryTileView.TilePadding = new System.Windows.Forms.Padding(1);
+            GalleryTileView.TileSize = new System.Drawing.Size(81, 110);
+            GalleryTileView.DrawItem += GalleryTileViewDrawItem;
+            GalleryTileView.MouseDoubleClick += GalleryTileViewMouseDoubleClick;
+            // 
             // panel1
             // 
             panel1.Controls.Add(ProgressBar);
             panel1.Controls.Add(DirectionTrackBar);
             panel1.Dock = System.Windows.Forms.DockStyle.Fill;
-            panel1.Location = new System.Drawing.Point(3, 602);
+            panel1.Location = new System.Drawing.Point(3, 772);
             panel1.Name = "panel1";
-            panel1.Size = new System.Drawing.Size(837, 24);
+            panel1.Size = new System.Drawing.Size(841, 24);
             panel1.TabIndex = 10;
             // 
             // ProgressBar
             // 
             ProgressBar.Anchor = System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right;
-            ProgressBar.Location = new System.Drawing.Point(605, 1);
+            ProgressBar.Location = new System.Drawing.Point(609, 1);
             ProgressBar.Margin = new System.Windows.Forms.Padding(4, 3, 4, 3);
             ProgressBar.Name = "ProgressBar";
             ProgressBar.Size = new System.Drawing.Size(110, 20);
@@ -1322,7 +1525,7 @@
             // 
             DirectionTrackBar.Anchor = System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right;
             DirectionTrackBar.AutoSize = false;
-            DirectionTrackBar.Location = new System.Drawing.Point(723, -1);
+            DirectionTrackBar.Location = new System.Drawing.Point(727, -1);
             DirectionTrackBar.Margin = new System.Windows.Forms.Padding(4, 3, 4, 3);
             DirectionTrackBar.Maximum = 4;
             DirectionTrackBar.Name = "DirectionTrackBar";
@@ -1334,10 +1537,10 @@
             // 
             StatusStrip.ImageScalingSize = new System.Drawing.Size(20, 20);
             StatusStrip.Items.AddRange(new System.Windows.Forms.ToolStripItem[] { MiscToolStripButton });
-            StatusStrip.Location = new System.Drawing.Point(0, 629);
+            StatusStrip.Location = new System.Drawing.Point(0, 799);
             StatusStrip.Name = "StatusStrip";
             StatusStrip.Padding = new System.Windows.Forms.Padding(1, 0, 16, 0);
-            StatusStrip.Size = new System.Drawing.Size(843, 22);
+            StatusStrip.Size = new System.Drawing.Size(847, 22);
             StatusStrip.TabIndex = 1;
             StatusStrip.Text = "statusStrip1";
             // 
@@ -1380,7 +1583,7 @@
             // 
             AutoScaleDimensions = new System.Drawing.SizeF(7F, 15F);
             AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            ClientSize = new System.Drawing.Size(1080, 651);
+            ClientSize = new System.Drawing.Size(1084, 821);
             Controls.Add(MainSplitContainer);
             DoubleBuffered = true;
             Margin = new System.Windows.Forms.Padding(4, 3, 4, 3);
@@ -1426,6 +1629,10 @@
             AnimationEditToolStrip.PerformLayout();
             ((System.ComponentModel.ISupportInitialize)AnimationPictureBox).EndInit();
             EditSidePanel.ResumeLayout(false);
+            SecondAnimGroupBox.ResumeLayout(false);
+            SecondAnimGroupBox.PerformLayout();
+            ((System.ComponentModel.ISupportInitialize)SecondAnimIdNumericUpDown).EndInit();
+            ((System.ComponentModel.ISupportInitialize)SecondAnimOpacityTrackBar).EndInit();
             FramesGroupBox.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)FramesTrackBar).EndInit();
             SpeedGroupBox.ResumeLayout(false);
@@ -1440,6 +1647,7 @@
             ((System.ComponentModel.ISupportInitialize)RefYNumericUpDown).EndInit();
             CoordinatesGroupBox.ResumeLayout(false);
             CoordinatesGroupBox.PerformLayout();
+            GalleryPage.ResumeLayout(false);
             panel1.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)DirectionTrackBar).EndInit();
             StatusStrip.ResumeLayout(false);
@@ -1503,6 +1711,8 @@
         private System.Windows.Forms.TabControl AnimationTabControl;
         private System.Windows.Forms.TabPage FramePage;
         private System.Windows.Forms.TabPage AnimationEditPage;
+        private System.Windows.Forms.TabPage GalleryPage;
+        private UoFiddler.Controls.UserControls.TileView.TileViewControl GalleryTileView;
         private System.Windows.Forms.ToolStripMenuItem textToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem tiffToolStripMenuItem;
         private System.Windows.Forms.ToolStrip AnimationFileToolStrip;
@@ -1561,5 +1771,20 @@
         private System.Windows.Forms.GroupBox groupBox3;
         private System.Windows.Forms.TableLayoutPanel tableLayoutPanel1;
         private System.Windows.Forms.TableLayoutPanel tableLayoutPanel2;
+        private System.Windows.Forms.ToolStripLabel ZoomLabel;
+        private System.Windows.Forms.ToolStripComboBox ZoomComboBox;
+        private System.Windows.Forms.ToolStripSeparator zoomToolStripSeparator;
+        private System.Windows.Forms.GroupBox SecondAnimGroupBox;
+        private System.Windows.Forms.CheckBox SecondAnimCheckBox;
+        private System.Windows.Forms.ComboBox SecondAnimFileComboBox;
+        private System.Windows.Forms.Label SecondAnimIdLabel;
+        private System.Windows.Forms.NumericUpDown SecondAnimIdNumericUpDown;
+        private System.Windows.Forms.ComboBox SecondAnimColorComboBox;
+        private System.Windows.Forms.Label SecondAnimOpacityLabel;
+        private System.Windows.Forms.Label SecondAnimOpacityValueLabel;
+        private System.Windows.Forms.TrackBar SecondAnimOpacityTrackBar;
+        private System.Windows.Forms.CheckBox SecondAnimInFrontCheckBox;
+        private System.Windows.Forms.CheckBox SecondAnimBoxCheckBox;
+        private System.Windows.Forms.Label SecondAnimWarningLabel;
     }
 }

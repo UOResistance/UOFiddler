@@ -108,23 +108,24 @@ namespace UoFiddler.Controls.UserControls
                 return;
             }
 
-            Cursor.Current = Cursors.WaitCursor;
-            Options.LoadedUltimaClass["Gumps"] = true;
-            _showFreeSlots = false;
-            showFreeSlotsToolStripMenuItem.Checked = false;
-
-            PopulateListBox(true);
-            LoadGumpXml();
-
-            if (!_loaded)
+            using (new WaitCursorScope(this))
             {
-                ControlEvents.FilePathChangeEvent += OnFilePathChangeEvent;
-                ControlEvents.GumpChangeEvent += OnGumpChangeEvent;
-                ControlEvents.PreviewBackgroundColorChangeEvent += OnPreviewBackgroundColorChanged;
-            }
+                Options.LoadedUltimaClass["Gumps"] = true;
+                _showFreeSlots = false;
+                showFreeSlotsToolStripMenuItem.Checked = false;
 
-            _loaded = true;
-            Cursor.Current = Cursors.Default;
+                PopulateListBox(true);
+                LoadGumpXml();
+
+                if (!_loaded)
+                {
+                    ControlEvents.FilePathChangeEvent += OnFilePathChangeEvent;
+                    ControlEvents.GumpChangeEvent += OnGumpChangeEvent;
+                    ControlEvents.PreviewBackgroundColorChangeEvent += OnPreviewBackgroundColorChanged;
+                }
+
+                _loaded = true;
+            }
         }
 
         private void PopulateListBox(bool showOnlyValid)
@@ -559,11 +560,13 @@ namespace UoFiddler.Controls.UserControls
                 return;
             }
 
-            Cursor.Current = Cursors.WaitCursor;
-            ProgressBarDialog barDialog = new ProgressBarDialog(Gumps.GetCount(), "Save");
-            Gumps.Save(Options.OutputPath);
-            barDialog.Dispose();
-            Cursor.Current = Cursors.Default;
+            using (new WaitCursorScope(this))
+            {
+                ProgressBarDialog barDialog = new ProgressBarDialog(Gumps.GetCount(), "Save");
+                Gumps.Save(Options.OutputPath);
+                barDialog.Dispose();
+            }
+
             Options.ChangedUltimaClass["Gumps"] = false;
             FileSavedDialog.Show(FindForm(), Options.OutputPath, "Files saved successfully.");
         }
@@ -617,13 +620,14 @@ namespace UoFiddler.Controls.UserControls
 
         private void OnTextChanged_InsertAt(object sender, EventArgs e)
         {
+            Color invalidColor = Options.DarkMode ? Color.OrangeRed : Color.Red;
             if (Utils.ConvertStringToInt(InsertText.Text, out int index, 0, Gumps.GetCount()))
             {
-                InsertText.ForeColor = Gumps.IsValidIndex(index) ? Color.Red : Color.Black;
+                InsertText.ForeColor = Gumps.IsValidIndex(index) ? invalidColor : SystemColors.ControlText;
             }
             else
             {
-                InsertText.ForeColor = Color.Red;
+                InsertText.ForeColor = invalidColor;
             }
         }
 
@@ -734,7 +738,7 @@ namespace UoFiddler.Controls.UserControls
         private static void ExportGumpImage(int index, ImageFormat imageFormat)
         {
             string fileExtension = Utils.GetFileExtensionFor(imageFormat);
-            string fileName = Path.Combine(Options.OutputPath, $"Gump 0x{index:X4}.{fileExtension}");
+            string fileName = Path.Combine(Options.OutputPath, $"Gump {Utils.FormatExportId(index)}.{fileExtension}");
 
             using (Bitmap bit = new Bitmap(Gumps.GetGump(index)))
             {
@@ -782,30 +786,29 @@ namespace UoFiddler.Controls.UserControls
                     return;
                 }
 
-                Cursor.Current = Cursors.WaitCursor;
-
-                for (int i = 0; i < listBox.Items.Count; ++i)
+                using (new WaitCursorScope(this))
                 {
-                    int index = int.Parse(listBox.Items[i].ToString());
-                    if (index < 0)
+                    for (int i = 0; i < listBox.Items.Count; ++i)
                     {
-                        continue;
-                    }
+                        int index = int.Parse(listBox.Items[i].ToString());
+                        if (index < 0)
+                        {
+                            continue;
+                        }
 
-                    string fileName = Path.Combine(dialog.SelectedPath, $"Gump 0x{index:X4}.{fileExtension}");
-                    var gump = Gumps.GetGump(index);
-                    if (gump is null)
-                    {
-                        continue;
-                    }
+                        string fileName = Path.Combine(dialog.SelectedPath, $"Gump {Utils.FormatExportId(index)}.{fileExtension}");
+                        var gump = Gumps.GetGump(index);
+                        if (gump is null)
+                        {
+                            continue;
+                        }
 
-                    using (Bitmap bit = new Bitmap(gump))
-                    {
-                        bit.Save(fileName, imageFormat);
+                        using (Bitmap bit = new Bitmap(gump))
+                        {
+                            bit.Save(fileName, imageFormat);
+                        }
                     }
                 }
-
-                Cursor.Current = Cursors.Default;
 
                 FileSavedDialog.Show(FindForm(), dialog.SelectedPath, "All Gumps saved successfully.");
             }
@@ -834,16 +837,12 @@ namespace UoFiddler.Controls.UserControls
 
         private void PreLoaderDoWork(object sender, DoWorkEventArgs e)
         {
-            for (int i = 0; i < Gumps.GetCount(); ++i)
-            {
-                Gumps.GetGump(i);
-                PreLoader.ReportProgress(1);
-            }
+            Gumps.PreloadParallel(0, done => PreLoader.ReportProgress(done));
         }
 
         private void PreLoaderProgressChanged(object sender, ProgressChangedEventArgs e)
         {
-            ProgressBar.PerformStep();
+            ProgressBar.Value = Math.Min(ProgressBar.Maximum, Math.Max(ProgressBar.Minimum, e.ProgressPercentage));
         }
 
         private void PreLoaderCompleted(object sender, RunWorkerCompletedEventArgs e)
@@ -853,10 +852,17 @@ namespace UoFiddler.Controls.UserControls
 
         internal static void Select(int gumpId)
         {
+            if (_refMarker == null)
+            {
+                return;
+            }
+
             if (!_refMarker._loaded)
             {
                 _refMarker.OnLoad(EventArgs.Empty);
             }
+
+            TabPageNavigator.ActivateOwningTabPage(_refMarker);
 
             Search(gumpId);
         }

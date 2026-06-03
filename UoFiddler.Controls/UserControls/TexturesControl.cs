@@ -15,6 +15,7 @@ using System.ComponentModel;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
+using System.Linq;
 using System.Windows.Forms;
 using Ultima;
 using UoFiddler.Controls.Classes;
@@ -54,6 +55,11 @@ namespace UoFiddler.Controls.UserControls
 
         public static bool Select(int textureId)
         {
+            if (_refMarker == null)
+            {
+                return false;
+            }
+
             if (!_refMarker._loaded)
             {
                 _refMarker.OnLoad(_refMarker, EventArgs.Empty);
@@ -64,9 +70,23 @@ namespace UoFiddler.Controls.UserControls
                 return false;
             }
 
-            // Reset focus index to ensure the view scrolls to the selected texture
-            _refMarker.TextureTileView.FocusIndex = -1;
-            _refMarker.SelectedTextureId = textureId;
+            TabPageNavigator.ActivateOwningTabPage(_refMarker);
+
+            if (_refMarker.IsHandleCreated)
+            {
+                _refMarker.BeginInvoke(new Action(() =>
+                {
+                    // Reset focus index to ensure the view scrolls to the selected texture
+                    _refMarker.TextureTileView.FocusIndex = -1;
+                    _refMarker.SelectedTextureId = textureId;
+                }));
+            }
+            else
+            {
+                _refMarker.TextureTileView.FocusIndex = -1;
+                _refMarker.SelectedTextureId = textureId;
+            }
+
             return true;
         }
 
@@ -94,30 +114,30 @@ namespace UoFiddler.Controls.UserControls
                 return;
             }
 
-            Cursor.Current = Cursors.WaitCursor;
-            Options.LoadedUltimaClass["Texture"] = true;
-
-            for (int i = 0; i < Textures.GetIdxLength(); ++i)
+            using (new WaitCursorScope(this))
             {
-                if (Textures.TestTexture(i))
+                Options.LoadedUltimaClass["Texture"] = true;
+
+                for (int i = 0; i < Textures.GetIdxLength(); ++i)
                 {
-                    _textureList.Add(i);
+                    if (Textures.TestTexture(i))
+                    {
+                        _textureList.Add(i);
+                    }
                 }
+
+                TextureTileView.VirtualListSize = _textureList.Count;
+
+                UpdateTileView();
+
+                if (!_loaded)
+                {
+                    ControlEvents.FilePathChangeEvent += OnFilePathChangeEvent;
+                    ControlEvents.TextureChangeEvent += OnTextureChangeEvent;
+                }
+
+                _loaded = true;
             }
-
-            TextureTileView.VirtualListSize = _textureList.Count;
-
-            UpdateTileView();
-
-            if (!_loaded)
-            {
-                ControlEvents.FilePathChangeEvent += OnFilePathChangeEvent;
-                ControlEvents.TextureChangeEvent += OnTextureChangeEvent;
-            }
-
-            _loaded = true;
-
-            Cursor.Current = Cursors.Default;
         }
 
         private void OnTextureChangeEvent(object sender, int index)
@@ -227,32 +247,41 @@ namespace UoFiddler.Controls.UserControls
 
         private void OnClickRemove(object sender, EventArgs e)
         {
-            if (_selectedTextureId < 0)
+            var ids = GetSelectedTextureIds().Where(Textures.TestTexture).ToList();
+            if (ids.Count == 0)
             {
                 return;
             }
 
-            if (!Textures.TestTexture(_selectedTextureId))
-            {
-                return;
-            }
+            string prompt = ids.Count == 1
+                ? $"Are you sure to remove 0x{ids[0]:X}"
+                : $"Are you sure to remove {ids.Count} textures?";
 
-            DialogResult result = MessageBox.Show($"Are you sure to remove 0x{_selectedTextureId:X}", "Save",
+            DialogResult result = MessageBox.Show(prompt, "Save",
                 MessageBoxButtons.YesNo, MessageBoxIcon.Question, MessageBoxDefaultButton.Button2);
             if (result != DialogResult.Yes)
             {
                 return;
             }
 
-            Textures.Remove(_selectedTextureId);
-            ControlEvents.FireTextureChangeEvent(this, _selectedTextureId);
+            foreach (int id in ids)
+            {
+                Textures.Remove(id);
+                ControlEvents.FireTextureChangeEvent(this, id);
+
+                if (!_showFreeSlots)
+                {
+                    _textureList.Remove(id);
+                }
+            }
+
+            TextureTileView.SelectedIndices.Clear();
 
             if (!_showFreeSlots)
             {
-                _textureList.Remove(_selectedTextureId);
                 TextureTileView.VirtualListSize = _textureList.Count;
-                var moveToIndex = --_selectedTextureId;
-                SelectedTextureId = moveToIndex <= 0 ? 0 : _selectedTextureId; // TODO: get last index visible instead just curr -1
+                int moveToId = ids[0] - 1;
+                SelectedTextureId = moveToId <= 0 ? 0 : moveToId; // TODO: get last index visible instead just curr -1
             }
 
             TextureTileView.Invalidate();
@@ -262,6 +291,12 @@ namespace UoFiddler.Controls.UserControls
 
         private void OnClickReplace(object sender, EventArgs e)
         {
+            if (TextureTileView.SelectedIndices.Count > 1)
+            {
+                ReplaceMultipleSelected();
+                return;
+            }
+
             if (_selectedTextureId < 0)
             {
                 return;
@@ -298,15 +333,104 @@ namespace UoFiddler.Controls.UserControls
             }
         }
 
+        private void ReplaceMultipleSelected()
+        {
+            var ids = GetSelectedTextureIds();
+            if (ids.Count == 0)
+            {
+                return;
+            }
+
+            using (OpenFileDialog dialog = new OpenFileDialog())
+            {
+                dialog.Multiselect = true;
+                dialog.Title = $"Choose {ids.Count} image files to replace selected textures";
+                dialog.CheckFileExists = true;
+                dialog.Filter = "Image files (*.tif;*.tiff;*.bmp;*.png)|*.tif;*.tiff;*.bmp;*.png";
+
+                if (dialog.ShowDialog() != DialogResult.OK)
+                {
+                    return;
+                }
+
+                var files = dialog.FileNames.OrderBy(Path.GetFileName, StringComparer.OrdinalIgnoreCase).ToArray();
+
+                if (files.Length != ids.Count)
+                {
+                    MessageBox.Show(
+                        $"Selected {ids.Count} textures but chose {files.Length} images.\n\nNo changes made.",
+                        "Selection Mismatch",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Warning);
+                    return;
+                }
+
+                // Load and validate all images first; abort the whole batch on any failure so no partial writes happen.
+                var bitmaps = new List<Bitmap>(ids.Count);
+                try
+                {
+                    for (int i = 0; i < ids.Count; ++i)
+                    {
+                        using (var bmpTemp = new Bitmap(files[i]))
+                        {
+                            bool validSize = (bmpTemp.Width == 64 && bmpTemp.Height == 64)
+                                || (bmpTemp.Width == 128 && bmpTemp.Height == 128);
+
+                            if (!validSize)
+                            {
+                                MessageBox.Show(
+                                    $"Invalid texture dimensions!\n\n" +
+                                    $"File: {Path.GetFileName(files[i])} ({bmpTemp.Width}x{bmpTemp.Height})\n" +
+                                    $"Textures must be 64x64 or 128x128 pixels.\n\n" +
+                                    $"No changes made.",
+                                    "Invalid Size",
+                                    MessageBoxButtons.OK,
+                                    MessageBoxIcon.Warning);
+                                return;
+                            }
+
+                            Bitmap bitmap = new Bitmap(bmpTemp);
+
+                            if (files[i].Contains(".bmp"))
+                            {
+                                bitmap = Utils.ConvertBmp(bitmap);
+                            }
+
+                            bitmaps.Add(bitmap);
+                        }
+                    }
+                }
+                catch
+                {
+                    foreach (var bmp in bitmaps)
+                    {
+                        bmp.Dispose();
+                    }
+                    throw;
+                }
+
+                for (int i = 0; i < ids.Count; ++i)
+                {
+                    Textures.Replace(ids[i], bitmaps[i]);
+                    ControlEvents.FireTextureChangeEvent(this, ids[i]);
+                }
+
+                TextureTileView.Invalidate();
+
+                Options.ChangedUltimaClass["Texture"] = true;
+            }
+        }
+
         private void OnTextChangedInsert(object sender, EventArgs e)
         {
+            Color invalidColor = Options.DarkMode ? Color.OrangeRed : Color.Red;
             if (Utils.ConvertStringToInt(InsertText.Text, out int index, 0, 0x3FFF))
             {
-                InsertText.ForeColor = Textures.TestTexture(index) ? Color.Red : Color.Black;
+                InsertText.ForeColor = Textures.TestTexture(index) ? invalidColor : SystemColors.ControlText;
             }
             else
             {
-                InsertText.ForeColor = Color.Red;
+                InsertText.ForeColor = invalidColor;
             }
         }
 
@@ -391,9 +515,11 @@ namespace UoFiddler.Controls.UserControls
 
         private void OnClickSave(object sender, EventArgs e)
         {
-            Cursor.Current = Cursors.WaitCursor;
-            Textures.Save(Options.OutputPath);
-            Cursor.Current = Cursors.Default;
+            using (new WaitCursorScope(this))
+            {
+                Textures.Save(Options.OutputPath);
+            }
+
             Options.ChangedUltimaClass["Texture"] = false;
 
             FileSavedDialog.Show(FindForm(), Options.OutputPath, "Files saved successfully.");
@@ -401,22 +527,61 @@ namespace UoFiddler.Controls.UserControls
 
         private void OnClickExportBmp(object sender, EventArgs e)
         {
-            ExportTextureImage(_selectedTextureId, ImageFormat.Bmp);
+            ExportSelected(ImageFormat.Bmp);
         }
 
         private void OnClickExportTiff(object sender, EventArgs e)
         {
-            ExportTextureImage(_selectedTextureId, ImageFormat.Tiff);
+            ExportSelected(ImageFormat.Tiff);
         }
 
         private void OnClickExportJpg(object sender, EventArgs e)
         {
-            ExportTextureImage(_selectedTextureId, ImageFormat.Jpeg);
+            ExportSelected(ImageFormat.Jpeg);
         }
 
         private void OnClickExportPng(object sender, EventArgs e)
         {
-            ExportTextureImage(_selectedTextureId, ImageFormat.Png);
+            ExportSelected(ImageFormat.Png);
+        }
+
+        private void ExportSelected(ImageFormat imageFormat)
+        {
+            var ids = GetSelectedTextureIds().Where(Textures.TestTexture).ToList();
+            if (ids.Count == 0)
+            {
+                return;
+            }
+
+            if (ids.Count == 1)
+            {
+                ExportTextureImage(ids[0], imageFormat);
+                return;
+            }
+
+            ExportMultipleTextureImages(ids, imageFormat);
+        }
+
+        private void ExportMultipleTextureImages(List<int> ids, ImageFormat imageFormat)
+        {
+            string fileExtension = Utils.GetFileExtensionFor(imageFormat);
+
+            foreach (int index in ids)
+            {
+                var texture = Textures.GetTexture(index);
+                if (texture is null)
+                {
+                    continue;
+                }
+
+                string fileName = Path.Combine(Options.OutputPath, $"Texture {Utils.FormatExportId(index)}.{fileExtension}");
+                using (Bitmap bit = new Bitmap(texture))
+                {
+                    bit.Save(fileName, imageFormat);
+                }
+            }
+
+            FileSavedDialog.Show(FindForm(), Options.OutputPath, $"{ids.Count} textures saved successfully.");
         }
 
         private static void ExportTextureImage(int index, ImageFormat imageFormat)
@@ -427,7 +592,7 @@ namespace UoFiddler.Controls.UserControls
             }
 
             string fileExtension = Utils.GetFileExtensionFor(imageFormat);
-            string fileName = Path.Combine(Options.OutputPath, $"Texture 0x{index:X4}.{fileExtension}");
+            string fileName = Path.Combine(Options.OutputPath, $"Texture {Utils.FormatExportId(index)}.{fileExtension}");
 
             using (Bitmap bit = new Bitmap(Textures.GetTexture(index)))
             {
@@ -436,6 +601,23 @@ namespace UoFiddler.Controls.UserControls
 
             MessageBox.Show($"Texture saved to {fileName}", "Saved", MessageBoxButtons.OK, MessageBoxIcon.Information,
                 MessageBoxDefaultButton.Button1);
+        }
+
+        /// <summary>
+        /// Resolves the current tile selection to a sorted list of texture IDs.
+        /// </summary>
+        private List<int> GetSelectedTextureIds()
+        {
+            var ids = new List<int>();
+            foreach (int idx in TextureTileView.SelectedIndices)
+            {
+                if (idx >= 0 && idx < _textureList.Count)
+                {
+                    ids.Add(_textureList[idx]);
+                }
+            }
+            ids.Sort();
+            return ids;
         }
 
         private void TextureTileView_ItemSelectionChanged(object sender, ListViewItemSelectionChangedEventArgs e)
@@ -475,16 +657,15 @@ namespace UoFiddler.Controls.UserControls
             Size defaultTileSize = new Size(defaultTileWidth, defaultTileWidth);
             Rectangle tileRectangle = new Rectangle(itemPoint, defaultTileSize);
 
-            var previousClip = e.Graphics.Clip;
+            using var previousClip = e.Graphics.Clip;
 
-            e.Graphics.Clip = new Region(tileRectangle);
+            using var clipRegion = new Region(tileRectangle);
+            e.Graphics.Clip = clipRegion;
 
             Bitmap bitmap = Textures.GetTexture(_textureList[e.Index], out bool patched);
 
             if (bitmap == null)
             {
-                e.Graphics.Clip = new Region(tileRectangle);
-
                 tileRectangle.X += 5;
                 tileRectangle.Y += 5;
 
@@ -548,29 +729,28 @@ namespace UoFiddler.Controls.UserControls
                     return;
                 }
 
-                Cursor.Current = Cursors.WaitCursor;
-
-                foreach (var index in _textureList)
+                using (new WaitCursorScope(this))
                 {
-                    if (!Textures.TestTexture(index))
+                    foreach (var index in _textureList)
                     {
-                        continue;
-                    }
+                        if (!Textures.TestTexture(index))
+                        {
+                            continue;
+                        }
 
-                    string fileName = Path.Combine(dialog.SelectedPath, $"Texture 0x{index:X4}.{fileExtension}");
-                    var texture = Textures.GetTexture(index);
-                    if (texture is null)
-                    {
-                        continue;
-                    }
+                        string fileName = Path.Combine(dialog.SelectedPath, $"Texture {Utils.FormatExportId(index)}.{fileExtension}");
+                        var texture = Textures.GetTexture(index);
+                        if (texture is null)
+                        {
+                            continue;
+                        }
 
-                    using (Bitmap bit = new Bitmap(texture))
-                    {
-                        bit.Save(fileName, imageFormat);
+                        using (Bitmap bit = new Bitmap(texture))
+                        {
+                            bit.Save(fileName, imageFormat);
+                        }
                     }
                 }
-
-                Cursor.Current = Cursors.Default;
 
                 MessageBox.Show($"All textures saved to {dialog.SelectedPath}", "Saved", MessageBoxButtons.OK,
                     MessageBoxIcon.Information, MessageBoxDefaultButton.Button1);
@@ -754,6 +934,11 @@ namespace UoFiddler.Controls.UserControls
 
         private void contextMenuStrip_Opening(object sender, System.ComponentModel.CancelEventArgs e)
         {
+            int selectedCount = TextureTileView.SelectedIndices.Count;
+            removeToolStripMenuItem.Text = selectedCount > 1 ? $"Remove {selectedCount}" : "Remove";
+            exportImageToolStripMenuItem.Text = selectedCount > 1 ? $"Export {selectedCount} Images..." : "Export Image..";
+            replaceToolStripMenuItem.Text = selectedCount > 1 ? $"Replace {selectedCount}" : "Replace";
+
             bool hasLandTile = _selectedTextureId >= 0
                 && _selectedTextureId < 0x4000
                 && Art.IsValidLand(_selectedTextureId);

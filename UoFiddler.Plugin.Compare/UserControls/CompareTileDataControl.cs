@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
+using System.Linq;
 using System.Windows.Forms;
 using Ultima;
 using UoFiddler.Controls.Classes;
@@ -89,11 +90,91 @@ namespace UoFiddler.Plugin.Compare.UserControls
 
         private void OnLoad(object sender, EventArgs e)
         {
+            ConfigureTileView(tileViewLandOrg);
+            ConfigureTileView(tileViewLandSec);
+            ConfigureTileView(tileViewItemOrg);
+            ConfigureTileView(tileViewItemSec);
+
             SetupDetailPanels();
             PopulateItemOrg();
             PopulateLandOrg();
             BuildRulesPanel();
             SetInnerSplitterPositions();
+
+            tileViewLandSec.SelectedIndices.CollectionChanged += OnLandSecSelectedIndicesChanged;
+            tileViewItemSec.SelectedIndices.CollectionChanged += OnItemSecSelectedIndicesChanged;
+        }
+
+        // TileViewControl exposes TileSize/Margin/Padding/Border with DesignerSerializationVisibility.Hidden,
+        // so VS strips them when re-saving the .Designer.cs. Apply the intended values here so they survive.
+        private static void ConfigureTileView(TileViewControl tv)
+        {
+            tv.TileSize = new Size(tv.TileSize.Width, 20);
+            tv.TileMargin = new Padding(0);
+            tv.TilePadding = new Padding(0);
+            tv.TileBorderWidth = 0f;
+            tv.TileFocusColor = Color.Transparent;
+            tv.TileHighlightColor = Options.TileSelectionColor;
+            tv.TileHighLightOpacity = 0.4;
+        }
+
+        private void OnChangeMultiSelect(object sender, EventArgs e)
+        {
+            tileViewLandSec.ShowCheckBoxes = chkMultiSelect.Checked;
+            tileViewItemSec.ShowCheckBoxes = chkMultiSelect.Checked;
+            tileViewLandSec.MultiSelect = chkMultiSelect.Checked;
+            tileViewItemSec.MultiSelect = chkMultiSelect.Checked;
+            if (!chkMultiSelect.Checked)
+            {
+                tileViewLandSec.SelectedIndices.Clear();
+                tileViewItemSec.SelectedIndices.Clear();
+            }
+        }
+
+        private void OnLandSecSelectedIndicesChanged(object sender, IndicesCollection.NotifyCollectionChangedEventArgs e)
+        {
+            MirrorSelection(tileViewLandSec, tileViewLandOrg);
+        }
+
+        private void OnItemSecSelectedIndicesChanged(object sender, IndicesCollection.NotifyCollectionChangedEventArgs e)
+        {
+            MirrorSelection(tileViewItemSec, tileViewItemOrg);
+        }
+
+        private void MirrorSelection(TileViewControl source, TileViewControl target)
+        {
+            if (_syncingSelection)
+            {
+                return;
+            }
+
+            _syncingSelection = true;
+            try
+            {
+                target.SelectedIndices.Clear();
+                foreach (int idx in source.SelectedIndices)
+                {
+                    target.SelectedIndices.Add(idx);
+                }
+            }
+            finally
+            {
+                _syncingSelection = false;
+            }
+        }
+
+        private List<int> GetCopyTargets(TileViewControl secView)
+        {
+            var sel = secView.SelectedIndices;
+            if (sel.Count > 0)
+            {
+                return sel.ToList();
+            }
+            if (secView.FocusIndex >= 0)
+            {
+                return new List<int> { secView.FocusIndex };
+            }
+            return new List<int>();
         }
 
         private void SetupDetailPanels()
@@ -140,11 +221,13 @@ namespace UoFiddler.Plugin.Compare.UserControls
             // Header row
             var header = new Panel { Dock = DockStyle.Top, Height = 22, BackColor = SystemColors.ControlLight };
             var hLbl = new Label { Text = "Flag", Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleLeft, Padding = new Padding(4, 0, 0, 0) };
-            var hSec = new Label { Text = "Sec", Width = 44, Dock = DockStyle.Right, TextAlign = ContentAlignment.MiddleCenter };
             var hOrg = new Label { Text = "Org", Width = 44, Dock = DockStyle.Right, TextAlign = ContentAlignment.MiddleCenter };
+            var hSec = new Label { Text = "Sec", Width = 44, Dock = DockStyle.Right, TextAlign = ContentAlignment.MiddleCenter };
             header.Controls.Add(hLbl);
-            header.Controls.Add(hSec);
+            // Highest index docks first, so hSec (added last) takes the rightmost slot above secChk (col 2),
+            // and hOrg (added second) ends up to its left above orgChk (col 1).
             header.Controls.Add(hOrg);
+            header.Controls.Add(hSec);
 
             // Scrollable area
             var scroll = new Panel { Dock = DockStyle.Fill, AutoScroll = true };
@@ -345,17 +428,36 @@ namespace UoFiddler.Plugin.Compare.UserControls
             }
 
             string tileFile = Path.Combine(path, "tiledata.mul");
-            string artFile = Path.Combine(path, "art.mul");
-            string artIdx = Path.Combine(path, "artidx.mul");
-
-            if (!File.Exists(tileFile) || !File.Exists(artFile) || !File.Exists(artIdx))
+            if (!File.Exists(tileFile))
             {
-                MessageBox.Show("Could not find tiledata.mul, art.mul and artidx.mul in the selected directory.",
+                MessageBox.Show("Could not find tiledata.mul in the selected directory.",
                     "Missing Files", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
 
-            SecondArt.SetFileIndex(artIdx, artFile);
+            if (CompareFiles.IsLoadedClientFile(tileFile, "tiledata.mul"))
+            {
+                MessageBox.Show(
+                    "The selected file is the same as the currently loaded tiledata.mul.\n\n" +
+                    "Choose a different directory to compare against.",
+                    "Same File",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
+                return;
+            }
+
+            string mulFile = Path.Combine(path, "art.mul");
+            string idxFile = Path.Combine(path, "artidx.mul");
+            string uopFile = Path.Combine(path, "artLegacyMUL.uop");
+
+            if (!SecondLoadHelper.TryResolveArtPaths("Auto", idxFile, mulFile, uopFile,
+                    out string resolvedIdx, out string resolvedMul, out string resolvedUop, out string error))
+            {
+                MessageBox.Show(error, "Missing Files", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            SecondArt.SetFileIndex(resolvedIdx, resolvedMul, resolvedUop);
 
             _secondTileData = new SecondTileData();
             _secondTileData.Initialize(tileFile, SecondArt.IsUOAHS());
@@ -574,22 +676,22 @@ namespace UoFiddler.Plugin.Compare.UserControls
                 return;
             }
 
-            Cursor.Current = Cursors.WaitCursor;
-            if (IsLandTab)
+            using (new WaitCursorScope(this))
             {
-                RefreshLandLists();
+                if (IsLandTab)
+                {
+                    RefreshLandLists();
+                }
+                else
+                {
+                    RefreshItemLists();
+                }
             }
-            else
-            {
-                RefreshItemLists();
-            }
-            Cursor.Current = Cursors.Default;
         }
 
         private void OnTabChanged(object sender, EventArgs e)
         {
-            Cursor.Current = Cursors.WaitCursor;
-            try
+            using (new WaitCursorScope(this))
             {
                 if (chkShowDiff.Checked && _secondTileData != null)
                 {
@@ -602,10 +704,6 @@ namespace UoFiddler.Plugin.Compare.UserControls
                         RefreshItemLists();
                     }
                 }
-            }
-            finally
-            {
-                Cursor.Current = Cursors.Default;
             }
         }
 
@@ -633,22 +731,25 @@ namespace UoFiddler.Plugin.Compare.UserControls
             DrawLandItem(e, _landDisplayIndices[e.Index], isSecondary: true);
         }
 
-        private void DrawLandItem(DrawItemEventArgs e, int i, bool isSecondary)
+        private void DrawLandItem(TileViewControl.DrawTileListItemEventArgs e, int i, bool isSecondary)
         {
-            if ((e.State & DrawItemState.Selected) == DrawItemState.Selected)
+            bool focused = (e.State & DrawItemState.Selected) == DrawItemState.Selected;
+            if (focused)
             {
-                e.Graphics.FillRectangle(Brushes.LightSteelBlue, e.Bounds);
+                using var highlightBrush = new SolidBrush(Options.TileSelectionColor);
+                e.Graphics.FillRectangle(highlightBrush, e.Bounds);
             }
             else
             {
-                e.Graphics.FillRectangle(new SolidBrush(e.BackColor), e.Bounds);
+                using var backBrush = new SolidBrush(e.BackColor);
+                e.Graphics.FillRectangle(backBrush, e.Bounds);
             }
 
-            Brush brush = GetLandBrush(i, isSecondary);
+            Brush brush = focused ? CompareColors.ContrastBrush(Options.TileSelectionColor) : GetLandBrush(i, isSecondary);
             string label = GetLandLabel(i, isSecondary);
 
             float y = e.Bounds.Y + (e.Bounds.Height - e.Graphics.MeasureString(label, e.Font).Height) / 2f;
-            e.Graphics.DrawString(label, e.Font, brush, new PointF(4, y));
+            e.Graphics.DrawString(label, e.Font, brush, new PointF(e.ContentLeft + 4, y));
         }
 
         private Brush GetLandBrush(int i, bool isSecondary)
@@ -714,22 +815,25 @@ namespace UoFiddler.Plugin.Compare.UserControls
             DrawItemEntry(e, _itemDisplayIndices[e.Index], isSecondary: true);
         }
 
-        private void DrawItemEntry(DrawItemEventArgs e, int i, bool isSecondary)
+        private void DrawItemEntry(TileViewControl.DrawTileListItemEventArgs e, int i, bool isSecondary)
         {
-            if ((e.State & DrawItemState.Selected) == DrawItemState.Selected)
+            bool focused = (e.State & DrawItemState.Selected) == DrawItemState.Selected;
+            if (focused)
             {
-                e.Graphics.FillRectangle(Brushes.LightSteelBlue, e.Bounds);
+                using var highlightBrush = new SolidBrush(Options.TileSelectionColor);
+                e.Graphics.FillRectangle(highlightBrush, e.Bounds);
             }
             else
             {
-                e.Graphics.FillRectangle(new SolidBrush(e.BackColor), e.Bounds);
+                using var backBrush = new SolidBrush(e.BackColor);
+                e.Graphics.FillRectangle(backBrush, e.Bounds);
             }
 
-            Brush brush = GetItemBrush(i);
+            Brush brush = focused ? CompareColors.ContrastBrush(Options.TileSelectionColor) : GetItemBrush(i);
             string label = GetItemLabel(i, isSecondary);
 
             float y = e.Bounds.Y + (e.Bounds.Height - e.Graphics.MeasureString(label, e.Font).Height) / 2f;
-            e.Graphics.DrawString(label, e.Font, brush, new PointF(4, y));
+            e.Graphics.DrawString(label, e.Font, brush, new PointF(e.ContentLeft + 4, y));
         }
 
         private Brush GetItemBrush(int i)
@@ -1075,28 +1179,57 @@ namespace UoFiddler.Plugin.Compare.UserControls
 
         private void OnClickCopyLandSelected(object sender, EventArgs e)
         {
-            if (_secondTileData == null || tileViewLandSec.FocusIndex < 0)
+            if (_secondTileData == null)
             {
                 return;
             }
 
-            int id = _landDisplayIndices[tileViewLandSec.FocusIndex];
-            CopyLandEntry(id);
-
-            if (chkShowDiff.Checked)
+            var targets = GetCopyTargets(tileViewLandSec);
+            if (targets.Count == 0)
             {
-                int displayIdx = _landDisplayIndices.IndexOf(id);
-                if (displayIdx >= 0)
+                return;
+            }
+
+            using (new WaitCursorScope(this))
+            {
+                int lastId = -1;
+
+                foreach (int focusIdx in targets)
                 {
-                    _landDisplayIndices.RemoveAt(displayIdx);
+                    if (focusIdx < 0 || focusIdx >= _landDisplayIndices.Count)
+                    {
+                        continue;
+                    }
+
+                    int id = _landDisplayIndices[focusIdx];
+                    CopyLandEntry(id);
+                    lastId = id;
+                }
+
+                if (chkShowDiff.Checked && lastId >= 0)
+                {
+                    foreach (int displayIdx in targets.OrderByDescending(x => x))
+                    {
+                        if (displayIdx >= 0 && displayIdx < _landDisplayIndices.Count)
+                        {
+                            _landDisplayIndices.RemoveAt(displayIdx);
+                        }
+                    }
                     tileViewLandOrg.VirtualListSize = _landDisplayIndices.Count;
                     tileViewLandSec.VirtualListSize = _landDisplayIndices.Count;
                 }
-            }
+                else
+                {
+                    tileViewLandSec.SelectedIndices.Clear();
+                }
 
-            tileViewLandOrg.Invalidate();
-            tileViewLandSec.Invalidate();
-            UpdateLandDetail(id);
+                tileViewLandOrg.Invalidate();
+                tileViewLandSec.Invalidate();
+                if (lastId >= 0)
+                {
+                    UpdateLandDetail(lastId);
+                }
+            }
         }
 
         private void OnClickCopyLandAllDiff(object sender, EventArgs e)
@@ -1106,24 +1239,25 @@ namespace UoFiddler.Plugin.Compare.UserControls
                 return;
             }
 
-            Cursor.Current = Cursors.WaitCursor;
-            int total = Math.Max(TileData.LandTable.Length, _secondTileData.LandTable.Length);
-            for (int i = 0; i < total; i++)
+            using (new WaitCursorScope(this))
             {
-                if (!CompareLand(i) && i < _secondTileData.LandTable.Length)
+                int total = Math.Max(TileData.LandTable.Length, _secondTileData.LandTable.Length);
+                for (int i = 0; i < total; i++)
                 {
-                    CopyLandEntry(i);
+                    if (!CompareLand(i) && i < _secondTileData.LandTable.Length)
+                    {
+                        CopyLandEntry(i);
+                    }
                 }
-            }
 
-            if (chkShowDiff.Checked)
-            {
-                RefreshLandLists();
-            }
+                if (chkShowDiff.Checked)
+                {
+                    RefreshLandLists();
+                }
 
-            Cursor.Current = Cursors.Default;
-            tileViewLandOrg.Invalidate();
-            tileViewLandSec.Invalidate();
+                tileViewLandOrg.Invalidate();
+                tileViewLandSec.Invalidate();
+            }
         }
 
         private void CopyLandEntry(int id)
@@ -1141,28 +1275,57 @@ namespace UoFiddler.Plugin.Compare.UserControls
 
         private void OnClickCopyItemSelected(object sender, EventArgs e)
         {
-            if (_secondTileData == null || tileViewItemSec.FocusIndex < 0)
+            if (_secondTileData == null)
             {
                 return;
             }
 
-            int id = _itemDisplayIndices[tileViewItemSec.FocusIndex];
-            CopyItemEntry(id);
-
-            if (chkShowDiff.Checked)
+            var targets = GetCopyTargets(tileViewItemSec);
+            if (targets.Count == 0)
             {
-                int displayIdx = _itemDisplayIndices.IndexOf(id);
-                if (displayIdx >= 0)
+                return;
+            }
+
+            using (new WaitCursorScope(this))
+            {
+                int lastId = -1;
+
+                foreach (int focusIdx in targets)
                 {
-                    _itemDisplayIndices.RemoveAt(displayIdx);
+                    if (focusIdx < 0 || focusIdx >= _itemDisplayIndices.Count)
+                    {
+                        continue;
+                    }
+
+                    int id = _itemDisplayIndices[focusIdx];
+                    CopyItemEntry(id);
+                    lastId = id;
+                }
+
+                if (chkShowDiff.Checked && lastId >= 0)
+                {
+                    foreach (int displayIdx in targets.OrderByDescending(x => x))
+                    {
+                        if (displayIdx >= 0 && displayIdx < _itemDisplayIndices.Count)
+                        {
+                            _itemDisplayIndices.RemoveAt(displayIdx);
+                        }
+                    }
                     tileViewItemOrg.VirtualListSize = _itemDisplayIndices.Count;
                     tileViewItemSec.VirtualListSize = _itemDisplayIndices.Count;
                 }
-            }
+                else
+                {
+                    tileViewItemSec.SelectedIndices.Clear();
+                }
 
-            tileViewItemOrg.Invalidate();
-            tileViewItemSec.Invalidate();
-            UpdateItemDetail(id);
+                tileViewItemOrg.Invalidate();
+                tileViewItemSec.Invalidate();
+                if (lastId >= 0)
+                {
+                    UpdateItemDetail(lastId);
+                }
+            }
         }
 
         private void OnClickCopyItemAllDiff(object sender, EventArgs e)
@@ -1172,33 +1335,42 @@ namespace UoFiddler.Plugin.Compare.UserControls
                 return;
             }
 
-            Cursor.Current = Cursors.WaitCursor;
-            int total = Math.Max(TileData.ItemTable.Length, _secondTileData.ItemTable.Length);
-            for (int i = 0; i < total; i++)
+            using (new WaitCursorScope(this))
             {
-                if (!CompareItem(i) && i < _secondTileData.ItemTable.Length)
+                int total = Math.Max(TileData.ItemTable.Length, _secondTileData.ItemTable.Length);
+                for (int i = 0; i < total; i++)
                 {
-                    CopyItemEntry(i);
+                    if (!CompareItem(i) && i < _secondTileData.ItemTable.Length)
+                    {
+                        CopyItemEntry(i);
+                    }
                 }
-            }
 
-            if (chkShowDiff.Checked)
-            {
-                RefreshItemLists();
-            }
+                if (chkShowDiff.Checked)
+                {
+                    RefreshItemLists();
+                }
 
-            Cursor.Current = Cursors.Default;
-            tileViewItemOrg.Invalidate();
-            tileViewItemSec.Invalidate();
+                tileViewItemOrg.Invalidate();
+                tileViewItemSec.Invalidate();
+            }
         }
 
         private void OnDoubleClickItemSec(object sender, MouseEventArgs e)
         {
+            if (tileViewItemSec.ShowCheckBoxes)
+            {
+                return;
+            }
             OnClickCopyItemSelected(sender, e);
         }
 
         private void OnDoubleClickLandSec(object sender, MouseEventArgs e)
         {
+            if (tileViewLandSec.ShowCheckBoxes)
+            {
+                return;
+            }
             OnClickCopyLandSelected(sender, e);
         }
 
@@ -1268,8 +1440,7 @@ namespace UoFiddler.Plugin.Compare.UserControls
 
             _options.IgnoredFlags = mask;
 
-            Cursor.Current = Cursors.WaitCursor;
-            try
+            using (new WaitCursorScope(this))
             {
                 InvalidateCompareCache();
                 if (IsLandTab)
@@ -1280,10 +1451,6 @@ namespace UoFiddler.Plugin.Compare.UserControls
                 {
                     RefreshItemLists();
                 }
-            }
-            finally
-            {
-                Cursor.Current = Cursors.Default;
             }
         }
 

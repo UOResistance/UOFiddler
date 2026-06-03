@@ -14,6 +14,7 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
+using System.Linq;
 using System.Security.Cryptography;
 using System.Windows.Forms;
 using Ultima;
@@ -39,30 +40,106 @@ namespace UoFiddler.Plugin.Compare.UserControls
 
         private void OnLoad(object sender, EventArgs e)
         {
-            Cursor.Current = Cursors.WaitCursor;
-            Options.LoadedUltimaClass["Gumps"] = true;
-
-            _displayIndices.Clear();
-            for (int i = 0; i < 0x10000; i++)
+            using (new WaitCursorScope(this))
             {
-                _displayIndices.Add(i);
+                Options.LoadedUltimaClass["Gumps"] = true;
+
+                ConfigureTileView(tileView1);
+                ConfigureTileView(tileView2);
+
+                _displayIndices.Clear();
+                for (int i = 0; i < 0x10000; i++)
+                {
+                    _displayIndices.Add(i);
+                }
+
+                tileView1.VirtualListSize = _displayIndices.Count;
+                tileView2.VirtualListSize = 0;
+
+                if (_displayIndices.Count > 0)
+                {
+                    tileView1.FocusIndex = 0;
+                }
+
+                if (comboBoxFileMode.SelectedIndex < 0)
+                {
+                    comboBoxFileMode.SelectedIndex = 0;
+                }
+
+                if (!_loaded)
+                {
+                    tileView2.SelectedIndices.CollectionChanged += OnSecSelectedIndicesChanged;
+                    contextMenuStrip1.Opening += (s, ev) =>
+                    {
+                        int count = tileView2.SelectedIndices.Count;
+                        copyGump2To1ToolStripMenuItem.Text = tileView2.ShowCheckBoxes && count > 1
+                            ? $"Copy {count} Gumps to left"
+                            : "Copy Gump to left";
+                    };
+                    ControlEvents.FilePathChangeEvent += OnFilePathChangeEvent;
+                }
+
+                _loaded = true;
+            }
+        }
+
+        // TileViewControl exposes TileSize/Margin/Padding/Border with DesignerSerializationVisibility.Hidden,
+        // so VS strips them when re-saving the .Designer.cs. Apply the intended values here so they survive.
+        private static void ConfigureTileView(TileViewControl tv)
+        {
+            tv.TileSize = new Size(tv.TileSize.Width, 60);
+            tv.TileMargin = new Padding(0);
+            tv.TilePadding = new Padding(0);
+            tv.TileBorderWidth = 0f;
+            tv.TileFocusColor = Color.Transparent;
+            tv.TileHighlightColor = Options.TileSelectionColor;
+            tv.TileHighLightOpacity = 0.4;
+        }
+
+        private void OnChangeMultiSelect(object sender, EventArgs e)
+        {
+            tileView2.ShowCheckBoxes = chkMultiSelect.Checked;
+            tileView2.MultiSelect = chkMultiSelect.Checked;
+            if (!chkMultiSelect.Checked)
+            {
+                tileView2.SelectedIndices.Clear();
+            }
+        }
+
+        private void OnSecSelectedIndicesChanged(object sender, IndicesCollection.NotifyCollectionChangedEventArgs e)
+        {
+            if (_syncingSelection)
+            {
+                return;
             }
 
-            tileView1.VirtualListSize = _displayIndices.Count;
-            tileView2.VirtualListSize = 0;
-
-            if (_displayIndices.Count > 0)
+            _syncingSelection = true;
+            try
             {
-                tileView1.FocusIndex = 0;
+                tileView1.SelectedIndices.Clear();
+                foreach (int idx in tileView2.SelectedIndices)
+                {
+                    tileView1.SelectedIndices.Add(idx);
+                }
             }
-
-            if (!_loaded)
+            finally
             {
-                ControlEvents.FilePathChangeEvent += OnFilePathChangeEvent;
+                _syncingSelection = false;
             }
+        }
 
-            _loaded = true;
-            Cursor.Current = Cursors.Default;
+        private List<int> GetCopyTargets()
+        {
+            var sel = tileView2.SelectedIndices;
+            if (sel.Count > 0)
+            {
+                return sel.ToList();
+            }
+            if (tileView2.FocusIndex >= 0)
+            {
+                return new List<int> { tileView2.FocusIndex };
+            }
+            return new List<int>();
         }
 
         private void OnFilePathChangeEvent()
@@ -98,15 +175,18 @@ namespace UoFiddler.Plugin.Compare.UserControls
             DrawGumpItem(e, _displayIndices[e.Index], isSecondary: true);
         }
 
-        private void DrawGumpItem(DrawItemEventArgs e, int i, bool isSecondary)
+        private void DrawGumpItem(TileViewControl.DrawTileListItemEventArgs e, int i, bool isSecondary)
         {
-            if ((e.State & DrawItemState.Selected) == DrawItemState.Selected)
+            bool focused = (e.State & DrawItemState.Selected) == DrawItemState.Selected;
+            if (focused)
             {
-                e.Graphics.FillRectangle(Brushes.LightSteelBlue, e.Bounds);
+                using var highlightBrush = new SolidBrush(Options.TileSelectionColor);
+                e.Graphics.FillRectangle(highlightBrush, e.Bounds);
             }
             else
             {
-                e.Graphics.FillRectangle(new SolidBrush(e.BackColor), e.Bounds);
+                using var backBrush = new SolidBrush(e.BackColor);
+                e.Graphics.FillRectangle(backBrush, e.Bounds);
             }
 
             bool valid = isSecondary ? SecondGump.IsValidIndex(i) : Gumps.IsValidIndex(i);
@@ -124,7 +204,7 @@ namespace UoFiddler.Plugin.Compare.UserControls
 
                     int width  = bmp.Width  > 80 ? 80 : bmp.Width;
                     int height = bmp.Height > 54 ? 54 : bmp.Height;
-                    e.Graphics.DrawImage(bmp, new Rectangle(e.Bounds.X + 3, e.Bounds.Y + 3, width, height));
+                    e.Graphics.DrawImage(bmp, new Rectangle(e.Bounds.X + e.ContentLeft + 3, e.Bounds.Y + 3, width, height));
                 }
                 else
                 {
@@ -136,9 +216,14 @@ namespace UoFiddler.Plugin.Compare.UserControls
                 fontBrush = Options.DarkMode ? Brushes.OrangeRed : Brushes.Red;
             }
 
+            if (focused)
+            {
+                fontBrush = CompareColors.ContrastBrush(Options.TileSelectionColor);
+            }
+
             string label = $"0x{i:X}";
             float y = e.Bounds.Y + (e.Bounds.Height - e.Graphics.MeasureString(label, Font).Height) / 2f;
-            e.Graphics.DrawString(label, Font, fontBrush, new PointF(85, y));
+            e.Graphics.DrawString(label, Font, fontBrush, new PointF(e.ContentLeft + 85, y));
         }
 
         private void OnFocusChanged1(object sender, TileViewControl.ListViewFocusedItemSelectionChangedEventArgs e)
@@ -217,17 +302,37 @@ namespace UoFiddler.Plugin.Compare.UserControls
 
         private void Load_Click(object sender, EventArgs e)
         {
-            if (textBoxSecondDir.Text == null)
+            if (string.IsNullOrWhiteSpace(textBoxSecondDir.Text))
             {
                 return;
             }
 
-            string path  = textBoxSecondDir.Text;
-            string file  = Path.Combine(path, "gumpart.mul");
-            string file2 = Path.Combine(path, "gumpidx.mul");
-            if (File.Exists(file) && File.Exists(file2))
+            string path = textBoxSecondDir.Text;
+            string mulFile = Path.Combine(path, "gumpart.mul");
+            string idxFile = Path.Combine(path, "gumpidx.mul");
+            string uopFile = Path.Combine(path, "gumpartLegacyMUL.uop");
+
+            if (!SecondLoadHelper.TryResolveGumpPaths(comboBoxFileMode.Text, idxFile, mulFile, uopFile,
+                    out string resolvedIdx, out string resolvedMul, out string resolvedUop, out string error))
             {
-                SecondGump.SetFileIndex(file2, file);
+                MessageBox.Show(error, "Missing Files", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            if (CompareFiles.IsLoadedClientFile(resolvedMul, "gumpart.mul") || CompareFiles.IsLoadedClientFile(resolvedUop, "gumpartLegacyMUL.uop"))
+            {
+                MessageBox.Show(
+                    "The selected files are the same as the currently loaded gump files.\n\n" +
+                    "Choose a different directory to compare against.",
+                    "Same File",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
+                return;
+            }
+
+            using (new WaitCursorScope(this))
+            {
+                SecondGump.SetFileIndex(resolvedIdx, resolvedMul, resolvedUop);
                 LoadSecond();
             }
         }
@@ -285,29 +390,30 @@ namespace UoFiddler.Plugin.Compare.UserControls
                 return;
             }
 
-            Cursor.Current = Cursors.WaitCursor;
-            _displayIndices.Clear();
-            if (checkBox1.Checked)
+            using (new WaitCursorScope(this))
             {
-                for (int i = 0; i < 0x10000; i++)
+                _displayIndices.Clear();
+                if (checkBox1.Checked)
                 {
-                    if (!Compare(i))
+                    for (int i = 0; i < 0x10000; i++)
+                    {
+                        if (!Compare(i))
+                        {
+                            _displayIndices.Add(i);
+                        }
+                    }
+                }
+                else
+                {
+                    for (int i = 0; i < 0x10000; i++)
                     {
                         _displayIndices.Add(i);
                     }
                 }
-            }
-            else
-            {
-                for (int i = 0; i < 0x10000; i++)
-                {
-                    _displayIndices.Add(i);
-                }
-            }
 
-            tileView1.VirtualListSize = _displayIndices.Count;
-            tileView2.VirtualListSize = _displayIndices.Count;
-            Cursor.Current = Cursors.Default;
+                tileView1.VirtualListSize = _displayIndices.Count;
+                tileView2.VirtualListSize = _displayIndices.Count;
+            }
         }
 
         private void Export_Bmp(object sender, EventArgs e)
@@ -325,7 +431,7 @@ namespace UoFiddler.Plugin.Compare.UserControls
             }
 
             string path     = Options.OutputPath;
-            string fileName = Path.Combine(path, $"Gump(Sec) 0x{i:X}.bmp");
+            string fileName = Path.Combine(path, $"Gump(Sec) {UoFiddler.Controls.Classes.Utils.FormatExportId(i)}.bmp");
             SecondGump.GetGump(i).Save(fileName, ImageFormat.Bmp);
 
             FileSavedDialog.Show(FindForm(), fileName, "Gump saved successfully.");
@@ -346,13 +452,13 @@ namespace UoFiddler.Plugin.Compare.UserControls
             }
 
             string path     = Options.OutputPath;
-            string fileName = Path.Combine(path, $"Gump(Sec) 0x{i:X}.tiff");
+            string fileName = Path.Combine(path, $"Gump(Sec) {UoFiddler.Controls.Classes.Utils.FormatExportId(i)}.tiff");
             SecondGump.GetGump(i).Save(fileName, ImageFormat.Tiff);
 
             FileSavedDialog.Show(FindForm(), fileName, "Gump saved successfully.");
         }
 
-        private void OnClickCopy(object sender, EventArgs e)
+        private void Export_Jpg(object sender, EventArgs e)
         {
             int focusIdx = tileView2.FocusIndex;
             if (focusIdx < 0)
@@ -366,16 +472,97 @@ namespace UoFiddler.Plugin.Compare.UserControls
                 return;
             }
 
-            Bitmap copy = new Bitmap(SecondGump.GetGump(i));
-            Gumps.ReplaceGump(i, copy);
-            Options.ChangedUltimaClass["Gumps"] = true;
-            ControlEvents.FireGumpChangeEvent(this, i);
-            _compare[i] = true;
+            string path     = Options.OutputPath;
+            string fileName = Path.Combine(path, $"Gump(Sec) {UoFiddler.Controls.Classes.Utils.FormatExportId(i)}.jpg");
+            SecondGump.GetGump(i).Save(fileName, ImageFormat.Jpeg);
 
-            tileView1.Invalidate();
-            tileView2.Invalidate();
+            FileSavedDialog.Show(FindForm(), fileName, "Gump saved successfully.");
+        }
 
-            UpdatePictureBox(pictureBox1, i, isSecondary: false);
+        private void Export_Png(object sender, EventArgs e)
+        {
+            int focusIdx = tileView2.FocusIndex;
+            if (focusIdx < 0)
+            {
+                return;
+            }
+
+            int i = _displayIndices[focusIdx];
+            if (!SecondGump.IsValidIndex(i))
+            {
+                return;
+            }
+
+            string path     = Options.OutputPath;
+            string fileName = Path.Combine(path, $"Gump(Sec) {UoFiddler.Controls.Classes.Utils.FormatExportId(i)}.png");
+            SecondGump.GetGump(i).Save(fileName, ImageFormat.Png);
+
+            FileSavedDialog.Show(FindForm(), fileName, "Gump saved successfully.");
+        }
+
+        private void OnClickCopy(object sender, EventArgs e)
+        {
+            var targets = GetCopyTargets();
+            if (targets.Count == 0)
+            {
+                return;
+            }
+
+            using (new WaitCursorScope(this))
+            {
+                int lastCopiedId = -1;
+                bool changed = false;
+
+                foreach (int focusIdx in targets)
+                {
+                    if (focusIdx < 0 || focusIdx >= _displayIndices.Count)
+                    {
+                        continue;
+                    }
+
+                    int i = _displayIndices[focusIdx];
+                    if (!SecondGump.IsValidIndex(i))
+                    {
+                        continue;
+                    }
+
+                    Bitmap copy = new Bitmap(SecondGump.GetGump(i));
+                    Gumps.ReplaceGump(i, copy);
+                    ControlEvents.FireGumpChangeEvent(this, i);
+                    _compare[i] = true;
+                    lastCopiedId = i;
+                    changed = true;
+                }
+
+                if (changed)
+                {
+                    Options.ChangedUltimaClass["Gumps"] = true;
+                }
+
+                if (checkBox1.Checked && changed)
+                {
+                    foreach (int idx in targets.OrderByDescending(x => x))
+                    {
+                        if (idx >= 0 && idx < _displayIndices.Count)
+                        {
+                            _displayIndices.RemoveAt(idx);
+                        }
+                    }
+                    tileView1.VirtualListSize = _displayIndices.Count;
+                    tileView2.VirtualListSize = _displayIndices.Count;
+                }
+                else
+                {
+                    tileView2.SelectedIndices.Clear();
+                }
+
+                tileView1.Invalidate();
+                tileView2.Invalidate();
+                if (lastCopiedId >= 0)
+                {
+                    UpdatePictureBox(pictureBox1, lastCopiedId, isSecondary: false);
+                }
+            }
         }
     }
 }

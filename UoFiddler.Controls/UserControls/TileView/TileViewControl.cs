@@ -23,6 +23,8 @@ namespace UoFiddler.Controls.UserControls.TileView
 
         private int _focusIndex = -1;
 
+        private int _selectionAnchorIndex = -1;
+
         /// <summary>
         /// Get or Set SelectedIndex, setting this property to -1 will remove selection, -2 is reserved for "do nothing".
         /// </summary>
@@ -112,6 +114,33 @@ namespace UoFiddler.Controls.UserControls.TileView
             }
         }
 
+        private bool _showCheckBoxes;
+        private const int CheckBoxSize = 13;
+        private const int CheckBoxLeftInset = 5;
+
+        /// <summary>
+        /// Horizontal space (in pixels) reserved on the left of each tile for the checkbox column when
+        /// <see cref="ShowCheckBoxes"/> is enabled. DrawItem handlers should offset their content by
+        /// <c>e.ContentLeft</c> instead of hard-coding the X position so the checkbox does not overlap text/images.
+        /// </summary>
+        public const int CheckBoxColumnWidth = 22;
+
+        /// <summary>
+        /// When true, a checkbox is drawn at the right edge of every tile and clicking it toggles the tile in <see cref="SelectedIndices"/>
+        /// without changing <see cref="FocusIndex"/>. Intended for multi-selection workflows.
+        /// </summary>
+        [Browsable(true)]
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+        public bool ShowCheckBoxes
+        {
+            get => _showCheckBoxes;
+            set
+            {
+                _showCheckBoxes = value;
+                Invalidate();
+            }
+        }
+
         private int _virtualListSize;
 
         /// <summary>
@@ -136,6 +165,7 @@ namespace UoFiddler.Controls.UserControls.TileView
                 }
 
                 SelectedIndices.Clear();
+                _selectionAnchorIndex = -1;
                 _cachedIndices.Clear();
                 UpdateAutoScrollSize();
             }
@@ -187,7 +217,7 @@ namespace UoFiddler.Controls.UserControls.TileView
 
         private Size _tileSize = new Size(256, 256);
 
-        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+        [DefaultValue(typeof(Size), "256, 256")]
         public Size TileSize
         {
             get => _tileSize;
@@ -200,7 +230,7 @@ namespace UoFiddler.Controls.UserControls.TileView
 
         private Padding _tileMargin = new Padding(2, 2, 2, 2); // external
 
-        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+        [DefaultValue(typeof(Padding), "2, 2, 2, 2")]
         public Padding TileMargin
         {
             get => _tileMargin;
@@ -213,7 +243,7 @@ namespace UoFiddler.Controls.UserControls.TileView
 
         private Padding _tilePadding = new Padding(2, 2, 2, 2);
 
-        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+        [DefaultValue(typeof(Padding), "2, 2, 2, 2")]
         public Padding TilePadding
         {
             get => _tilePadding;
@@ -226,7 +256,7 @@ namespace UoFiddler.Controls.UserControls.TileView
 
         private readonly Pen _tileBorder = new Pen(Brushes.Black, 1.0f);
 
-        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+        [DefaultValue(1.0f)]
         public float TileBorderWidth
         {
             get => _tileBorder.Width;
@@ -238,7 +268,7 @@ namespace UoFiddler.Controls.UserControls.TileView
         }
 
         [Browsable(true)]
-        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+        [DefaultValue(typeof(Color), "Black")]
         public Color TileBorderColor
         {
             get => _tileBorder.Color;
@@ -279,7 +309,7 @@ namespace UoFiddler.Controls.UserControls.TileView
         /// Focused tile border and highlight color
         /// </summary>
         [Browsable(true)]
-        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+        [DefaultValue(typeof(Color), "DarkRed")]
         public Color TileFocusColor
         {
             get => _tileFocusColor;
@@ -296,7 +326,7 @@ namespace UoFiddler.Controls.UserControls.TileView
         /// Selected tile highlight color
         /// </summary>
         [Browsable(true)]
-        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+        [DefaultValue(typeof(Color), "Highlight")]
         public Color TileHighlightColor
         {
             get => _tileHighlightColor;
@@ -316,7 +346,7 @@ namespace UoFiddler.Controls.UserControls.TileView
         /// Color of tile background
         /// </summary>
         [Browsable(true)]
-        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+        [DefaultValue(typeof(Color), "Window")]
         public Color TileBackgroundColor
         {
             get => _tileBackgroundColor;
@@ -339,6 +369,47 @@ namespace UoFiddler.Controls.UserControls.TileView
             MouseDown += (o, e) =>
             {
                 int idx = GetIndexAtLocation(e.Location);
+
+                if (_showCheckBoxes && idx >= 0 && e.Button == MouseButtons.Left)
+                {
+                    Keys mods = ModifierKeys;
+
+                    // Shift (with or without Ctrl) applies the clicked row's resulting state to the whole
+                    // range from the anchor, so a contiguous block can be checked or unchecked in one
+                    // action. The anchor is the last row that was clicked/focused.
+                    if ((mods & Keys.Shift) == Keys.Shift)
+                    {
+                        int anchor = _selectionAnchorIndex >= 0 && _selectionAnchorIndex < _virtualListSize
+                            ? _selectionAnchorIndex
+                            : idx;
+                        bool select = !SelectedIndices.Contains(idx);
+                        SetRangeSelection(anchor, idx, select);
+                        FocusIndex = idx;
+                        return;
+                    }
+
+                    // Ctrl-click anywhere on the row, or a click directly on the checkbox, toggles that row.
+                    if ((mods & Keys.Control) == Keys.Control || IsInCheckBoxRegion(e.Location, idx))
+                    {
+                        if (SelectedIndices.Contains(idx))
+                        {
+                            SelectedIndices.Remove(idx);
+                        }
+                        else
+                        {
+                            SelectedIndices.Add(idx);
+                        }
+                        _selectionAnchorIndex = idx;
+                        FocusIndex = idx;
+                        return;
+                    }
+
+                    // Plain click on the row body moves focus and sets the anchor for a later Shift range,
+                    // keeping the current checkbox selection.
+                    _selectionAnchorIndex = idx;
+                    FocusIndex = idx;
+                    return;
+                }
 
                 FocusIndex = idx;
 
@@ -487,7 +558,20 @@ namespace UoFiddler.Controls.UserControls.TileView
 
         private void SelectIndex(int index)
         {
-            switch (ModifierKeys)
+            Keys modifiers = ModifierKeys;
+
+            // Range selection: Shift extends from the anchor. Ctrl+Shift adds the range to the
+            // existing selection, plain Shift replaces it. The anchor is left untouched so further
+            // Shift-clicks keep extending from the same starting point.
+            if (_multiSelect && (modifiers & Keys.Shift) == Keys.Shift)
+            {
+                int anchor = _selectionAnchorIndex >= 0 ? _selectionAnchorIndex : index;
+                bool additive = (modifiers & Keys.Control) == Keys.Control;
+                SelectRange(anchor, index, additive);
+                return;
+            }
+
+            switch (modifiers)
             {
                 case Keys.Control:
                     if (_multiSelect)
@@ -510,15 +594,69 @@ namespace UoFiddler.Controls.UserControls.TileView
                         }
                     }
 
+                    _selectionAnchorIndex = index;
+
                     break;
                 default:
+                    // When the checkbox column is visible, the selection set is owned by the checkboxes;
+                    // a plain click must only change focus and never wipe an in-progress multi-selection.
+                    if (_showCheckBoxes)
+                    {
+                        break;
+                    }
+
                     if (!SelectedIndices.Contains(index))
                     {
                         SelectedIndices.Clear();
                         SelectedIndices.Add(index);
                     }
 
+                    _selectionAnchorIndex = index;
+
                     break;
+            }
+        }
+
+        private void SelectRange(int fromIndex, int toIndex, bool additive)
+        {
+            if (!additive)
+            {
+                SelectedIndices.Clear();
+            }
+
+            int start = Math.Min(fromIndex, toIndex);
+            int end = Math.Max(fromIndex, toIndex);
+
+            for (int i = start; i <= end; ++i)
+            {
+                if (!SelectedIndices.Contains(i))
+                {
+                    SelectedIndices.Add(i);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Forces every index in the inclusive range to the given selected state, leaving items
+        /// outside the range untouched. Used by checkbox-mode Shift selection so a range can be
+        /// both checked and unchecked.
+        /// </summary>
+        private void SetRangeSelection(int fromIndex, int toIndex, bool select)
+        {
+            int start = Math.Min(fromIndex, toIndex);
+            int end = Math.Max(fromIndex, toIndex);
+
+            for (int i = start; i <= end; ++i)
+            {
+                bool contains = SelectedIndices.Contains(i);
+                if (select && !contains)
+                {
+                    SelectedIndices.Add(i);
+                }
+                else if (!select && contains)
+                {
+                    SelectedIndices.Remove(i);
+                }
             }
         }
 
@@ -540,6 +678,23 @@ namespace UoFiddler.Controls.UserControls.TileView
         private Point GetItemLocation(int index)
         {
             return new Point(index % _itemsPerRow * TotalTileSize.Width, index / _itemsPerRow * TotalTileSize.Height);
+        }
+
+        private Rectangle GetCheckBoxRect(int index)
+        {
+            Point itemLoc = GetItemLocation(index);
+            int left = itemLoc.X + _tileMargin.Left + (int)_tileBorder.Width + CheckBoxLeftInset;
+            int size = Math.Min(CheckBoxSize, Math.Max(8, TotalTileSize.Height - 4));
+            int top = itemLoc.Y + (TotalTileSize.Height - size) / 2;
+            return new Rectangle(left, top, size, size);
+        }
+
+        private bool IsInCheckBoxRegion(Point location, int index)
+        {
+            Rectangle cb = GetCheckBoxRect(index);
+            int virtX = location.X - AutoScrollPosition.X;
+            int virtY = location.Y - AutoScrollPosition.Y;
+            return cb.Contains(virtX, virtY);
         }
 
         /// <summary>
@@ -671,7 +826,8 @@ namespace UoFiddler.Controls.UserControls.TileView
 
                 if (DrawItem != null)
                 {
-                    DrawItem(this, new DrawTileListItemEventArgs(e.Graphics, Font, borderRec, i, _focusIndex == i ? DrawItemState.Selected : DrawItemState.None));
+                    int contentLeft = _showCheckBoxes ? CheckBoxColumnWidth : 0;
+                    DrawItem(this, new DrawTileListItemEventArgs(e.Graphics, Font, borderRec, i, _focusIndex == i ? DrawItemState.Selected : DrawItemState.None, contentLeft));
                 }
                 else
                 {
@@ -715,7 +871,23 @@ namespace UoFiddler.Controls.UserControls.TileView
                         e.Graphics.DrawRectangle(pen, focusRec);
                     }
                 }
+
+                if (_showCheckBoxes)
+                {
+                    Rectangle cb = GetCheckBoxRect(i);
+                    ButtonState state = SelectedIndices.Contains(i) ? ButtonState.Checked : ButtonState.Normal;
+                    ControlPaint.DrawCheckBox(e.Graphics, cb, state);
+                }
             }
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                _tileBorder?.Dispose();
+            }
+            base.Dispose(disposing);
         }
 
         public class ListViewFocusedItemSelectionChangedEventArgs : EventArgs
@@ -732,9 +904,17 @@ namespace UoFiddler.Controls.UserControls.TileView
 
         public class DrawTileListItemEventArgs : DrawItemEventArgs
         {
+            /// <summary>
+            /// Horizontal offset inside <see cref="DrawItemEventArgs.Bounds"/> where the handler's content
+            /// should start drawing, to avoid overlapping the checkbox column when <see cref="ShowCheckBoxes"/>
+            /// is enabled. Zero when no checkbox column is reserved.
+            /// </summary>
+            public int ContentLeft { get; }
+
             public DrawTileListItemEventArgs(Graphics graphics, Font font, Rectangle rect, int index,
-                DrawItemState state) : base(graphics, font, rect, index, state)
+                DrawItemState state, int contentLeft = 0) : base(graphics, font, rect, index, state)
             {
+                ContentLeft = contentLeft;
             }
         }
     }

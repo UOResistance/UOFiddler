@@ -21,6 +21,34 @@ namespace Ultima
         public static bool CacheData { get; set; } = true;
 
         /// <summary>
+        /// Initial LRU capacity for the Art read cache (statics + land
+        /// tiles share the same cache). Default 4096 — bounds the worst-case
+        /// working set to a few hundred MB of bitmaps even after a full
+        /// 0x14000-id scan, while keeping recent thumbnails warm. Reading
+        /// happens at static-ctor time so set this before first use, or call
+        /// <see cref="Ultima.Art.SetCacheCapacity"/> at runtime.
+        /// </summary>
+        public static int CacheCapacityArt { get; set; } = 4096;
+
+        /// <summary>
+        /// Initial LRU capacity for the Gumps read cache. Default 2048 —
+        /// gumps are larger on average than statics, so the cap is lower
+        /// to keep total memory comparable. Adjust via
+        /// <see cref="Ultima.Gumps.SetCacheCapacity"/> at runtime.
+        /// </summary>
+        public static int CacheCapacityGumps { get; set; } = 2048;
+
+        /// <summary>
+        /// Initial LRU capacity for the Animations frame cache (the only major
+        /// file format previously without a decode cache). Counts whole
+        /// AnimationFrame[] entries — thumbnails are 1 frame, player directions
+        /// a handful. Default 1024 keeps the visible grid + scroll working set
+        /// warm. Adjust via <see cref="Ultima.Animations.SetCacheCapacity"/> at
+        /// runtime.
+        /// </summary>
+        public static int CacheCapacityAnimations { get; set; } = 1024;
+
+        /// <summary>
         /// Contains the path infos
         /// </summary>
         public static Dictionary<string, string> MulPath { get; set; }
@@ -183,7 +211,7 @@ namespace Ultima
         /// </summary>
         public static void LoadMulPath()
         {
-            MulPath = new Dictionary<string, string>();
+            MulPath = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             RootDir = Directory ?? string.Empty;
 
             foreach (string file in _uoFiles)
@@ -258,9 +286,9 @@ namespace Ultima
 
             string path = string.Empty;
 
-            if (MulPath.ContainsKey(file.ToLower()))
+            if (MulPath.TryGetValue(file, out string mapped))
             {
-                path = MulPath[file.ToLower()];
+                path = mapped;
             }
 
             if (string.IsNullOrEmpty(path))
